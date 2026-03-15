@@ -13,13 +13,13 @@
 // ─────────────────────────────────────────────────────────────
 
 export const FIREBASE_CONFIG = {
-  apiKey:            "COLE_AQUI",
-  authDomain:        "COLE_AQUI",
-  projectId:         "COLE_AQUI",
-  storageBucket:     "COLE_AQUI",
-  messagingSenderId: "COLE_AQUI",
-  appId:             "COLE_AQUI"
-};
+apiKey: "AIzaSyBftPck1xyz4ZIiyNxWaiNBpDeEoSv91sg",
+  authDomain: "agenda-online-hn.firebaseapp.com",
+  projectId: "agenda-online-hn",
+  storageBucket: "agenda-online-hn.firebasestorage.app",
+  messagingSenderId: "848852820918",
+  appId: "1:848852820918:web:fd37176261c19ac740d717",
+  measurementId: "G-L2R944HQ68"
 
 /* Firestore collection paths */
 export const COLLECTIONS = {
