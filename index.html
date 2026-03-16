@@ -1,10 +1,5 @@
 <!DOCTYPE html>
 <html lang="pt-BR" data-theme="dark">
-     <script>
-     window.FIREBASE_CONFIG = {
-          apiKey: "AIzaSyBftPck1xyz4ZIiyNxWaiNBpDeEoSv91sg",
-     }
-          </script>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -27,12 +22,13 @@
 ══════════════════════════════════════════════════════════ -->
 <script>
 window.FIREBASE_CONFIG = {
-  apiKey:            "COLE_AQUI",
-  authDomain:        "COLE_AQUI",
-  projectId:         "COLE_AQUI",
-  storageBucket:     "COLE_AQUI",
-  messagingSenderId: "COLE_AQUI",
-  appId:             "COLE_AQUI"
+  apiKey:            "AIzaSyBftPck1xyz4ZIiyNxWaiNBpDeEoSv91sg",
+  authDomain:        "agenda-online-hn.firebaseapp.com",
+  projectId:         "agenda-online-hn",
+  storageBucket:     "agenda-online-hn.firebasestorage.app",
+  messagingSenderId: "848852820918",
+  appId:             "1:848852820918:web:fd37176261c19ac740d717",
+  measurementId:     "G-L2R944HQ68"
 };
 </script>
 <style>
@@ -896,36 +892,20 @@ label.fl {
   position: fixed;
   bottom: 0; left: 0; right: 0;
   background: var(--bg2); border-top: 1px solid var(--border2);
-  padding: 12px 16px;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  padding: 14px 18px;
+  padding-bottom: calc(14px + env(safe-area-inset-bottom));
   display: flex; align-items: center; gap: 12px;
-  z-index: 500;
-  transform: translateY(120%);
-  transition: transform .35s cubic-bezier(.34,1.2,.64,1);
-  box-shadow: 0 -8px 32px rgba(0,0,0,.45);
+  z-index: 600;
+  transform: translateY(110%);
+  transition: transform .3s ease;
+  box-shadow: 0 -4px 24px rgba(0,0,0,.5);
+  pointer-events: none;
 }
-.pwa-banner.show { transform: translateY(0); }
-/* Float above bottom-nav on mobile */
-.mob-fab {
-  display:none; position:fixed;
-  bottom:calc(80px + env(safe-area-inset-bottom)); right:72px;
-  width:48px; height:48px; border-radius:50%;
-  background:var(--amber); color:#000; border:none; cursor:pointer;
-  z-index:400; align-items:center; justify-content:center;
-  font-size:1.3rem; font-weight:700;
-  box-shadow:0 4px 20px var(--amber-glow); transition:transform .15s;
+.pwa-banner.show {
+  transform: translateY(0);
+  pointer-events: auto;
 }
-.mob-fab:active { transform:scale(.88); }
 
-@media (max-width: 768px) {
-  .pwa-banner {
-    bottom: calc(60px + env(safe-area-inset-bottom));
-    border-radius: 16px 16px 0 0;
-    left: 8px; right: 8px;
-    border: 1px solid var(--border2);
-    box-shadow: 0 4px 32px rgba(0,0,0,.6);
-  }
-}
 .pwa-banner-icon {
   width: 42px; height: 42px; border-radius: 11px; flex-shrink: 0;
   background: linear-gradient(135deg, var(--amber), var(--amber2));
@@ -938,13 +918,14 @@ label.fl {
 .pwa-dismiss {
   width: 44px; height: 44px; border-radius: 50%;
   background: var(--bg3); border: 1px solid var(--border2);
-  color: var(--text3); font-size: 1rem; cursor: pointer;
+  color: var(--text3); font-size: 1.1rem; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: background .15s; flex-shrink: 0;
-  /* explicit z-index so it's never blocked */
-  position: relative; z-index: 501;
+  transition: background .15s, transform .1s; flex-shrink: 0;
+  position: relative; z-index: 601;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
-.pwa-dismiss:active { background: var(--bg4); }
+.pwa-dismiss:active { background: var(--bg4); transform: scale(.88); }
 
 /* Notif permission prompt */
 .notif-prompt {
@@ -1221,7 +1202,13 @@ label.fl {
   #page-relatorios > div > *, #page-agenda > div > * { margin-bottom: 14px; }
   .fake-map { height: 240px; }
 
-  /* PWA banner — handled in component CSS */
+  /* PWA banner: float above bottom-nav */
+  .pwa-banner {
+    bottom: calc(58px + env(safe-area-inset-bottom));
+    left: 10px; right: 10px;
+    border-radius: 14px;
+    border: 1px solid var(--border2);
+  }
 }
 
 @media (max-width: 390px) {
@@ -1593,6 +1580,9 @@ label.fl {
           <div class="user-role-sm" id="sb-urole"></div>
         </div>
       </div>
+      <button onclick="logout()" style="width:100%;display:flex;align-items:center;gap:8px;padding:7px 10px;margin-top:4px;background:none;border:none;border-radius:8px;cursor:pointer;color:var(--text3);font-size:.75rem;transition:all .15s;font-family:'Outfit',sans-serif" onmouseover="this.style.background='var(--red-d)';this.style.color='var(--red)'" onmouseout="this.style.background='none';this.style.color='var(--text3)'">
+        <span>🚪</span><span>Sair da plataforma</span>
+      </button>
     </div>
   </aside>
 
@@ -2567,7 +2557,7 @@ label.fl {
   </div>
   <div class="pwa-banner-actions">
     <button class="btn btn-primary btn-sm" onclick="installPWA()">Instalar</button>
-    <button class="pwa-dismiss" onclick="dismissPWA()">✕</button>
+    <button class="pwa-dismiss" onclick="event.stopPropagation();dismissPWA()">✕</button>
   </div>
 </div>
 
@@ -3255,52 +3245,84 @@ function selectProfile(id) {
 function _renderLoginProfiles() {
   const container = document.getElementById('login-profiles');
   if (!container) return;
-  container.innerHTML = _LOGIN_PROFILES.map(p => {
-    const u = DB.users.find(x => x.id === p.userId);
-    if (!u) return '';
-    const sel = _loginSelected === p.userId;
-    return `<div class="profile-card ${sel?'selected':''}" onclick="selectProfile(${p.userId})">
-      <div class="profile-avatar" style="background:${roleBg(p.role)};color:${roleColor(p.role)}">${initials(u.nome)}</div>
-      <div class="profile-card-name">${u.nome}</div>
-      <div class="profile-card-role">${p.label}</div>
-    </div>`;
+  const users = DB.users.filter(u => u.ativo);
+  if (!_loginSelected && users.length) _loginSelected = users[0].id;
+  container.innerHTML = users.map(u => {
+    const sel = _loginSelected === u.id;
+    const lbl = {admin:'Administrador',gerente:'Gerente',corretor:'Corretor',cliente:'Cliente'}[u.role]||u.role;
+    return '<div class="profile-card ' + (sel?'selected':'') + '" onclick="selectProfile(' + u.id + ')">'
+      + '<div class="profile-avatar" style="background:' + roleBg(u.role) + ';color:' + roleColor(u.role) + '">'
+      + (u.avatar ? '<img src="' + u.avatar + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">' : initials(u.nome))
+      + '</div>'
+      + '<div class="profile-card-name">' + u.nome + '</div>'
+      + '<div class="profile-card-role">' + lbl + '</div>'
+      + '</div>';
   }).join('');
 }
 
-function doLogin() {
+async function doLogin() {
   const emailEl   = document.getElementById('login-email');
   const senhaEl   = document.getElementById('login-senha');
   const errEl     = document.getElementById('login-error');
   const emailWrap = document.getElementById('login-email-wrap');
+  const loginBtn  = document.querySelector('.btn-login');
   if (errEl) errEl.style.display = 'none';
-  let u = null;
 
-  if (emailWrap && emailWrap.style.display !== 'none') {
-    // Email + senha mode (default)
-    const email = (emailEl?.value || '').trim().toLowerCase();
-    const senha = senhaEl?.value || '';
-    if (!email) {
-      if (errEl) { errEl.textContent = 'Digite seu email'; errEl.style.display = ''; }
-      emailEl?.focus(); return;
-    }
-    u = DB.users.find(x => x.email.toLowerCase() === email && x.senha === senha && x.ativo);
-    if (!u) {
-      if (errEl) { errEl.textContent = 'Email ou senha incorretos'; errEl.style.display = ''; }
-      senhaEl?.select(); return;
-    }
-  } else {
-    // Demo profile picker
-    u = DB.users.find(x => x.id === _loginSelected);
+  // ── Demo profile picker mode ──────────────────────────────
+  if (emailWrap && emailWrap.style.display === 'none') {
+    const u = DB.users.find(x => x.id === _loginSelected);
     if (!u) { showToast('Selecione um perfil', 'error'); return; }
+    _enterApp(u); return;
   }
 
-  state.currentUser = u;
+  // ── Email + senha mode ────────────────────────────────────
+  const email = (emailEl?.value || '').trim().toLowerCase();
+  const senha = senhaEl?.value || '';
+  if (!email) {
+    if (errEl) { errEl.textContent = 'Digite seu email'; errEl.style.display = ''; }
+    emailEl?.focus(); return;
+  }
+  if (!senha) {
+    if (errEl) { errEl.textContent = 'Digite sua senha'; errEl.style.display = ''; }
+    senhaEl?.focus(); return;
+  }
+
+  // Feedback visual
+  if (loginBtn) { loginBtn.textContent = 'Entrando…'; loginBtn.disabled = true; }
+
+  try {
+    if (_firebaseReady && _auth) {
+      // ── Firebase Auth ─────────────────────────────────────
+      await firebaseLogin(email, senha);
+      // onAuthStateChanged vai cuidar do resto
+      // (initApp é chamado dentro do listener)
+    } else {
+      // ── Modo demo sem Firebase ────────────────────────────
+      const u = DB.users.find(x =>
+        x.email.toLowerCase() === email && x.senha === senha && x.ativo);
+      if (!u) throw new Error('Email ou senha incorretos');
+      _enterApp(u);
+    }
+  } catch(e) {
+    if (errEl) { errEl.textContent = e.message; errEl.style.display = ''; }
+    senhaEl?.select();
+  } finally {
+    if (loginBtn) {
+      loginBtn.innerHTML = '<span>Entrar</span><span>→</span>';
+      loginBtn.disabled = false;
+    }
+  }
+}
+
+function _enterApp(user) {
+  state.currentUser = user;
   const screen = document.getElementById('login-screen');
   screen.style.animation = 'fadeUp .3s ease reverse both';
   setTimeout(() => {
     screen.style.display = 'none';
     document.getElementById('app').classList.add('visible');
     initApp();
+    if (_firebaseReady) startRealtimeSync();
   }, 300);
 }
 
@@ -3316,9 +3338,8 @@ function initApp() {
   buildSideNav();
   updateUserPill();
   applyBranding();
-  initPWA();
   initBottomNav();
-  setTimeout(()=>{loadFromFirebase();startRealtimeSync();},600);
+  // Data loaded before initApp in Firebase Auth flow; realtime sync already started
   // Load user favorites from DB
   const cl = DB.clientes.find(c=>c.nome===state.currentUser.nome);
   if(cl && cl.favoritos) state.favoritos = [...cl.favoritos];
@@ -3518,6 +3539,25 @@ function handleTopAction() {
 
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('collapsed');
+}
+
+async function logout() {
+  if (!confirm('Sair da plataforma?')) return;
+  await firebaseLogout();
+  state.currentUser = null;
+  // Clear UI
+  const screen = document.getElementById('login-screen');
+  screen.style.display = '';
+  screen.style.animation = 'none';
+  document.getElementById('app').classList.remove('visible');
+  // Clear form
+  const em = document.getElementById('login-email');
+  const pw = document.getElementById('login-senha');
+  if (em) em.value = '';
+  if (pw) pw.value = '';
+  const errEl = document.getElementById('login-error');
+  if (errEl) errEl.style.display = 'none';
+  initLogin();
 }
 
 function toggleTheme() {
@@ -4011,6 +4051,7 @@ function cancelarVisita(id){
   if(!confirm('Cancelar esta visita?')) return;
   const v = DB.visitas.find(x=>x.id===id);
   v.status = 'cancelado';
+  syncToFirebase('visitas');
   // Remove from kanban pipeline
   ['lead','visita_agendada','visita_realizada','proposta'].forEach(col => {
     DB.kanban[col] = (DB.kanban[col]||[]).filter(k =>
@@ -4018,6 +4059,7 @@ function cancelarVisita(id){
     );
   });
   renderVisitas();
+  syncToFirebase('kanban');
   if(state.currentPage==='funil') renderKanban();
   showToast('Visita cancelada','info');
 }
@@ -4071,6 +4113,7 @@ function reagendar(){
   v.motivo=document.getElementById('reag-motivo').value;
   v.obs=(document.getElementById('reag-obs').value||v.obs||'');
   closeModal('m-reagendar');
+  syncToFirebase('visitas');
   showToast('Visita reagendada! ✓','success');
   renderVisitas(); renderKanban();
   if(state.currentPage==='dashboard'||state.currentPage==='dashboard-cliente') {
@@ -4144,6 +4187,8 @@ function agendarVisita(){
     });
   }
   closeModal('m-agendar');
+  syncToFirebase('visitas');
+  syncToFirebase('kanban');
   showToast(`Visita agendada! 📲 WhatsApp enviado para ${cl}`,'success');
   if(state.currentPage==='visitas') renderVisitas();
   else if(state.currentPage==='agenda') renderCalendar();
@@ -4174,13 +4219,14 @@ function renderClientes(search='') {
     </tr>`).join('')||`<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--text3)">Nenhum cliente encontrado</td></tr>`;
 }
 function agendarParaCliente(nome){ populateAgendarSelects(); document.getElementById('ag-cliente').value=nome; updateWaPreview(); openModal('m-agendar'); }
-function removeCliente(id){ if(!confirm('Remover cliente?')) return; DB.clientes=DB.clientes.filter(c=>c.id!==id); renderClientes(); showToast('Cliente removido','info'); }
+function removeCliente(id){ if(!confirm('Remover cliente?')) return; DB.clientes=DB.clientes.filter(c=>c.id!==id); _deleteDoc('clientes',id); renderClientes(); showToast('Cliente removido','info'); }
 function addCliente(){
   const nome=document.getElementById('cl-nome').value;
   const email=document.getElementById('cl-email').value;
   if(!nome||!email){showToast('Preencha nome e email','error');return;}
   DB.clientes.push({id:Date.now(),nome,email,tel:document.getElementById('cl-tel').value,interesse:document.getElementById('cl-int').value,faixa:document.getElementById('cl-faixa').value,obs:document.getElementById('cl-obs').value,visitas:0});
   closeModal('m-add-cliente');
+  syncToFirebase('clientes', DB.clientes[DB.clientes.length-1]);
   showToast('Cliente cadastrado!','success');
   renderClientes();
 }
@@ -4266,6 +4312,7 @@ function saveMoveCorretor() {
   const old = corr.gerente;
   corr.gerente = novo;
   closeModal('m-move-corretor');
+  syncToFirebase('corretores');
   renderCorretores();
   showToast(`${corr.nome} movido${novo?` para equipe de ${novo}`+' ✓':' (sem gerente)'}`, 'success');
 }
@@ -4281,10 +4328,11 @@ function addCorretor(){
   const gerenteVal = role==='gerente' ? state.currentUser.nome : document.getElementById('cor-ger').value;
   DB.corretores.push({id:Date.now(),nome,email,creci,tel:document.getElementById('cor-tel').value,gerente:gerenteVal,comissao:parseFloat(document.getElementById('cor-com').value)||1,status:'ativo',visitas:0});
   closeModal('m-add-corretor');
+  syncToFirebase('corretores', DB.corretores[DB.corretores.length-1]);
   showToast(`Corretor ${nome} cadastrado${role==='gerente'?' na sua equipe':''}!`,'success');
   renderCorretores();
 }
-function removeCorretor(id){ if(!confirm('Remover corretor?')) return; DB.corretores=DB.corretores.filter(c=>c.id!==id); renderCorretores(); showToast('Corretor removido','info'); }
+function removeCorretor(id){ if(!confirm('Remover corretor?')) return; DB.corretores=DB.corretores.filter(c=>c.id!==id); _deleteDoc('corretores',id); renderCorretores(); showToast('Corretor removido','info'); }
 
 /* ═══════════════════════════════════════════════════════════════
    KANBAN FUNIL
@@ -4450,6 +4498,7 @@ function moveKanbanCard(cardId, fromColId, toColId, e) {
   else if (toColId === 'lead') card.tag = '🎯 Lead';
   DB.kanban[toColId] = DB.kanban[toColId] || [];
   DB.kanban[toColId].push(card);
+  syncToFirebase('kanban');
   renderKanban();
   showToast(`${card.titulo} → ${toCol.label}`, 'success');
 }
@@ -4538,6 +4587,7 @@ function saveNewKanbanCard(colId) {
   DB.kanban[colId] = DB.kanban[colId] || [];
   DB.kanban[colId].push({ id, titulo, sub, corretor: initls, corrNome, valor, tag });
   closeModal('m-info');
+  syncToFirebase('kanban');
   renderKanban();
   showToast(`Card adicionado em ${KANBAN_COLS.find(c=>c.id===colId).label}`, 'success');
 }
@@ -4729,6 +4779,8 @@ function submitAval() {
   DB.avaliacoes.push({id:Date.now(),visitaId:state.avaliandoVisitaId,imovel:v.imovel,corretor:v.corretor,cliente:v.cliente,notaAtend:state.starsRating.atend,notaImovel:state.starsRating.imovel,comentario:document.getElementById('aval-comment').value||'Sem comentário.',interesse:state.interesseAval,data:new Date().toISOString().split('T')[0]});
   v.avaliado=true;
   closeModal('m-avaliar');
+  syncToFirebase('avaliacoes');
+  syncToFirebase('visitas');
   showToast('Avaliação enviada! Obrigado pelo feedback ⭐','success');
   if(state.currentPage==='visitas') renderVisitas();
   if(state.currentPage==='avaliacoes') renderAvaliacoes();
@@ -5020,6 +5072,7 @@ function saveProfile() {
   const corr = DB.corretores.find(c => c.nome === state.currentUser.nome || c.email === email);
   if(corr) { corr.nome=nome; corr.email=email; corr.tel=tel; }
 
+  syncToFirebase('users', state.currentUser);
   updateUserPill();
   renderPerfil();
   showToast('Perfil atualizado com sucesso! ✓','success');
@@ -5139,6 +5192,7 @@ function savePassword() {
   document.getElementById('pass-strength-bar').style.width = '0';
   document.getElementById('pass-strength-label').textContent = '';
   document.getElementById('pass-match-label').textContent = '';
+  syncToFirebase('users', state.currentUser);
   showToast('Senha atualizada com sucesso! 🔒','success');
 }
 
@@ -5251,6 +5305,7 @@ function addUsuario(){
     criadoPor:state.currentUser.id
   };
   DB.users.push(newUser);
+  createFirebaseAuthUser(email, senha).catch(()=>{});
   if (role==='corretor') {
     DB.corretores.push({
       id:newUser.id, nome, email,
@@ -5264,7 +5319,7 @@ function addUsuario(){
   _renderLoginProfiles();
   showToast(`${ROLE_LABELS[role]} "${nome}" cadastrado! Senha: ${senha}`,'success');
   renderUsuarios();
-  syncToFirebase && syncToFirebase();
+  syncToFirebase('users', newUser);
 }
 
 function removeUsuario(id) {
@@ -5280,7 +5335,7 @@ function removeUsuario(id) {
   _renderLoginProfiles();
   renderUsuarios();
   showToast('Usuário removido','info');
-  syncToFirebase && syncToFirebase();
+  _deleteDoc('users', id);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -5306,6 +5361,7 @@ function addImovel(){
     visitas:0, lat:Math.random()*70+10, lng:Math.random()*80+10,
   });
   closeModal('m-add-imovel');
+  syncToFirebase('imoveis', DB.imoveis[DB.imoveis.length-1]);
   showToast('Imóvel cadastrado com sucesso!','success');
   renderImoveis();
 }
@@ -5317,6 +5373,7 @@ function saveCfg(){
   DB.company.name=document.getElementById('cfg-name').value||'ImóvelAgenda';
   DB.company.color=document.getElementById('cfg-color').value;
   applyBranding();
+  syncToFirebase('company');
   buildSideNav();
   showToast(`Configurações de "${DB.company.name}" salvas!`,'success');
 }
@@ -5723,6 +5780,8 @@ function connectGCal() {
 let deferredPrompt = null;
 
 function initPWA() {
+  if (window._pwaInitDone) return;
+  window._pwaInitDone = true;
   // ── Manifest via blob (best effort for single-file app) ──────
   const color = DB.company.color || '#D4973A';
   const svgIcon = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'>`
@@ -6321,79 +6380,282 @@ function openTimeline() {
    Modo offline por padrão. Ativa quando FIREBASE_CONFIG estiver
    configurado em firebase.js (carregado antes deste script).
 ═══════════════════════════════════════════════════════════════ */
-let _db=null, _auth=null, _firebaseReady=false;
+/* ═══════════════════════════════════════════════════════════════
+   FIREBASE — Auth + Firestore
+   • Login via Firebase Authentication (email/senha)
+   • Todos os dados vivem no Firestore
+   • onSnapshot mantém tudo em tempo real entre dispositivos
+   • F5 = Firebase Auth revalida sessão automaticamente
+═══════════════════════════════════════════════════════════════ */
+let _db   = null;
+let _auth = null;
+let _firebaseReady = false;
+let _unsubscribers = [];   // para cancelar listeners ao sair
 
+/* Inicializa Firebase se config estiver preenchida */
 function initFirebase() {
   try {
-    if (typeof firebase==='undefined') return;
-    const cfg=window.FIREBASE_CONFIG;
-    if (!cfg||cfg.apiKey==='COLE_AQUI') { console.info('Firebase: usando modo offline'); return; }
+    if (typeof firebase === 'undefined') return;
+    const cfg = window.FIREBASE_CONFIG;
+    if (!cfg || cfg.apiKey === 'COLE_AQUI') {
+      console.info('Firebase não configurado — modo demo ativo');
+      return;
+    }
     if (!firebase.apps.length) firebase.initializeApp(cfg);
-    _auth=firebase.auth();
-    _db=firebase.firestore();
-    _firebaseReady=true;
-    _db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
-    console.log('✅ Firebase conectado');
-  } catch(e) { console.warn('Firebase não configurado:',e.message); }
+    _auth = firebase.auth();
+    _db   = firebase.firestore();
+    _firebaseReady = true;
+    // Cache offline: funciona sem internet e sincroniza quando reconectar
+    _db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+    console.log('✅ Firebase inicializado');
+  } catch(e) {
+    console.warn('Erro ao inicializar Firebase:', e.message);
+  }
 }
 
+/* ── Converte doc Firestore → objeto JS ── */
+function _fromDoc(doc) {
+  return { ...doc.data(), id: doc.id };
+}
+
+/* ── Carrega todas as coleções de uma vez ── */
 async function loadFromFirebase() {
-  if (!_firebaseReady||!_db) return;
+  if (!_firebaseReady || !_db) return;
   try {
-    const [usersSnap,imoveisSnap,visitasSnap,clientesSnap,corretoresSnap,kanbanSnap] = await Promise.all([
-      _db.collection('users').get(),
-      _db.collection('imoveis').get(),
-      _db.collection('visitas').get(),
-      _db.collection('clientes').get(),
-      _db.collection('corretores').get(),
-      _db.collection('kanban').get(),
-    ]);
-    if (!usersSnap.empty) DB.users=usersSnap.docs.map(d=>({...d.data(),id:d.id}));
-    if (!imoveisSnap.empty) DB.imoveis=imoveisSnap.docs.map(d=>({...d.data(),id:d.id}));
-    if (!visitasSnap.empty) DB.visitas=visitasSnap.docs.map(d=>({...d.data(),id:d.id}));
-    if (!clientesSnap.empty) DB.clientes=clientesSnap.docs.map(d=>({...d.data(),id:d.id}));
-    if (!corretoresSnap.empty) DB.corretores=corretoresSnap.docs.map(d=>({...d.data(),id:d.id}));
+    const cols = ['users','imoveis','visitas','clientes','corretores','avaliacoes','notificacoes'];
+    const snaps = await Promise.all(cols.map(col => _db.collection(col).get()));
+    snaps.forEach((snap, i) => {
+      if (!snap.empty) DB[cols[i]] = snap.docs.map(_fromDoc);
+    });
+    // Kanban (sub-estrutura)
+    const kanbanSnap = await _db.collection('kanban').get();
     if (!kanbanSnap.empty) {
-      DB.kanban={};
-      kanbanSnap.docs.forEach(d=>{ DB.kanban[d.id]=d.data().cards||[]; });
+      DB.kanban = {};
+      kanbanSnap.docs.forEach(d => { DB.kanban[d.id] = d.data().cards || []; });
     }
-    _renderLoginProfiles();
-    if (state.currentUser) { const r={dashboard:renderDashboard,'dashboard-cliente':renderDashboardCliente,imoveis:renderImoveis,visitas:renderVisitas,funil:renderKanban,clientes:renderClientes,corretores:renderCorretores,usuarios:renderUsuarios}; if(r[state.currentPage]) r[state.currentPage](); }
-    console.log('✅ Dados carregados do Firebase');
-  } catch(e) { console.warn('Erro Firebase:',e.message); }
+    // Company config
+    const compSnap = await _db.collection('company').doc('config').get();
+    if (compSnap.exists) Object.assign(DB.company, compSnap.data());
+
+    console.log('✅ Dados carregados do Firestore');
+  } catch(e) {
+    console.warn('Erro ao carregar dados:', e.message);
+  }
 }
 
-async function syncToFirebase(collection, data) {
-  if (!_firebaseReady||!_db) return;
+/* ── Salva um único documento no Firestore ── */
+async function _saveDoc(collection, item) {
+  if (!_firebaseReady || !_db) return;
   try {
-    if (collection==='kanban') {
-      const b=_db.batch();
-      Object.entries(DB.kanban).forEach(([col,cards])=>b.set(_db.collection('kanban').doc(col),{cards},{merge:true}));
-      await b.commit();
-    } else {
-      const arr=Array.isArray(data)?data:DB[collection]||[];
-      const b=_db.batch();
-      arr.forEach(item=>b.set(_db.collection(collection).doc(String(item.id)),item,{merge:true}));
-      await b.commit();
-    }
-  } catch(e) { console.warn('Sync error:',e.message); }
+    await _db.collection(collection).doc(String(item.id)).set(item, { merge: true });
+  } catch(e) { console.warn(`Erro ao salvar ${collection}:`, e.message); }
 }
 
+/* ── Remove um único documento ── */
+async function _deleteDoc(collection, id) {
+  if (!_firebaseReady || !_db) return;
+  try {
+    await _db.collection(collection).doc(String(id)).delete();
+  } catch(e) { console.warn(`Erro ao remover ${collection}/${id}:`, e.message); }
+}
+
+/* ── Salva coleção inteira (para arrays que sofrem filter) ── */
+async function _saveCollection(collection, arr) {
+  if (!_firebaseReady || !_db) return;
+  try {
+    const batch = _db.batch();
+    arr.forEach(item => {
+      batch.set(_db.collection(collection).doc(String(item.id)), item, { merge: true });
+    });
+    await batch.commit();
+  } catch(e) { console.warn(`Erro ao salvar coleção ${collection}:`, e.message); }
+}
+
+/* ── Salva kanban completo ── */
+async function _saveKanban() {
+  if (!_firebaseReady || !_db) return;
+  try {
+    const batch = _db.batch();
+    Object.entries(DB.kanban).forEach(([col, cards]) => {
+      batch.set(_db.collection('kanban').doc(col), { cards }, { merge: true });
+    });
+    await batch.commit();
+  } catch(e) { console.warn('Erro ao salvar kanban:', e.message); }
+}
+
+/* ── Salva company config ── */
+async function _saveCompany() {
+  if (!_firebaseReady || !_db) return;
+  try {
+    await _db.collection('company').doc('config').set(DB.company, { merge: true });
+  } catch(e) { console.warn('Erro ao salvar company:', e.message); }
+}
+
+/* ── API pública: syncToFirebase(collection, item?) ──
+   collection = nome da coleção ou 'kanban' ou 'company'
+   item = objeto específico (opcional — se omitido salva a coleção toda) */
+function syncToFirebase(collection, item) {
+  if (!_firebaseReady || !_db) return;
+  if (collection === 'kanban')  { _saveKanban(); return; }
+  if (collection === 'company') { _saveCompany(); return; }
+  if (item) { _saveDoc(collection, item); }
+  else { _saveCollection(collection, DB[collection] || []); }
+}
+
+/* ── Listeners em tempo real: atualiza UI quando outro dispositivo muda ── */
 function startRealtimeSync() {
-  if (!_firebaseReady||!_db) return;
-  _db.collection('visitas').onSnapshot(snap=>{
-    DB.visitas=snap.docs.map(d=>({...d.data(),id:d.id}));
-    if(state.currentPage==='visitas') renderVisitas();
-    if(state.currentPage==='dashboard') renderDashboard();
+  if (!_firebaseReady || !_db) return;
+
+  // Cancela listeners anteriores
+  _unsubscribers.forEach(u => u());
+  _unsubscribers = [];
+
+  const listen = (col, onUpdate) => {
+    const unsub = _db.collection(col).onSnapshot(snap => {
+      if (snap.empty) return;
+      onUpdate(snap.docs.map(_fromDoc));
+    }, err => console.warn(`Listener ${col}:`, err.message));
+    _unsubscribers.push(unsub);
+  };
+
+  listen('visitas', data => {
+    DB.visitas = data;
+    if (state.currentPage === 'visitas')           renderVisitas();
+    if (state.currentPage === 'dashboard')         renderDashboard();
+    if (state.currentPage === 'dashboard-cliente') renderDashboardCliente();
+    if (state.currentPage === 'agenda')            renderCalendar();
+    if (state.currentPage === 'funil')             renderKanban();
     refreshNavBadges();
   });
-  _db.collection('users').onSnapshot(snap=>{
-    if(snap.empty) return;
-    DB.users=snap.docs.map(d=>({...d.data(),id:d.id}));
+
+  listen('users', data => {
+    DB.users = data;
+    if (state.currentPage === 'usuarios') renderUsuarios();
     _renderLoginProfiles();
-    if(state.currentPage==='usuarios') renderUsuarios();
+  });
+
+  listen('imoveis', data => {
+    DB.imoveis = data;
+    if (state.currentPage === 'imoveis') renderImoveis();
+    if (state.currentPage === 'mapa')    renderMap();
+  });
+
+  listen('clientes', data => {
+    DB.clientes = data;
+    if (state.currentPage === 'clientes') renderClientes();
+    if (state.currentPage === 'crm')      renderCRM();
+  });
+
+  listen('corretores', data => {
+    DB.corretores = data;
+    if (state.currentPage === 'corretores') renderCorretores();
+  });
+
+  listen('avaliacoes', data => {
+    DB.avaliacoes = data;
+    if (state.currentPage === 'avaliacoes') renderAvaliacoes();
+  });
+
+  // Kanban (estrutura diferente)
+  const kanbanUnsub = _db.collection('kanban').onSnapshot(snap => {
+    if (snap.empty) return;
+    snap.docs.forEach(d => { DB.kanban[d.id] = d.data().cards || []; });
+    if (state.currentPage === 'funil') renderKanban();
+  });
+  _unsubscribers.push(kanbanUnsub);
+
+  console.log('✅ Listeners em tempo real ativos');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FIREBASE AUTH — Login real com email/senha
+═══════════════════════════════════════════════════════════════ */
+
+/* Inicializa auth listener: detecta sessão existente no F5 */
+function initFirebaseAuth() {
+  if (!_firebaseReady || !_auth) return;
+
+  _auth.onAuthStateChanged(async (firebaseUser) => {
+    if (firebaseUser) {
+      // Usuário já logado (F5 ou reabrir aba)
+      // Busca perfil no Firestore usando o email
+      try {
+        const snap = await _db.collection('users')
+          .where('email', '==', firebaseUser.email).limit(1).get();
+        if (!snap.empty) {
+          await loadFromFirebase();
+          state.currentUser = _fromDoc(snap.docs[0]);
+          document.getElementById('login-screen').style.display = 'none';
+          document.getElementById('app').classList.add('visible');
+          initApp();
+          startRealtimeSync();
+        }
+      } catch(e) {
+        console.warn('Erro ao restaurar sessão:', e.message);
+      }
+    } else {
+      // Não logado — mostra tela de login
+      if (!state.currentUser) {
+        document.getElementById('login-screen').style.display = '';
+        initLogin();
+      }
+    }
   });
 }
+
+/* Login com Firebase Auth */
+async function firebaseLogin(email, senha) {
+  if (!_firebaseReady || !_auth) return null;
+  try {
+    const cred = await _auth.signInWithEmailAndPassword(email, senha);
+    return cred.user;
+  } catch(e) {
+    const msgs = {
+      'auth/user-not-found':   'Email não encontrado',
+      'auth/wrong-password':   'Senha incorreta',
+      'auth/invalid-email':    'Email inválido',
+      'auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos.',
+      'auth/user-disabled':    'Conta desativada',
+    };
+    throw new Error(msgs[e.code] || e.message);
+  }
+}
+
+/* Logout Firebase */
+async function firebaseLogout() {
+  if (_firebaseReady && _auth) {
+    _unsubscribers.forEach(u => u());
+    _unsubscribers = [];
+    await _auth.signOut().catch(() => {});
+  }
+}
+
+/* Cria usuário no Firebase Auth (chamado ao cadastrar novo usuário) */
+async function createFirebaseAuthUser(email, senha) {
+  if (!_firebaseReady || !_auth) return;
+  try {
+    // Usa REST API para criar sem fazer login automático
+    const cfg = window.FIREBASE_CONFIG;
+    const url = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${cfg.apiKey}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: senha, returnSecureToken: false })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      const msgs = {
+        'EMAIL_EXISTS': 'Este email já possui conta no Firebase',
+        'WEAK_PASSWORD': 'Senha muito fraca (mínimo 6 caracteres)',
+      };
+      const code = err.error?.message || '';
+      console.warn('Firebase Auth create:', msgs[code] || code);
+    }
+  } catch(e) {
+    console.warn('Erro ao criar conta Firebase Auth:', e.message);
+  }
+}
+
 
 /* ── Mobile FAB ── */
 const MOB_FAB_CONFIG={
@@ -6422,8 +6684,15 @@ function updateMobFab(page){
 }
 
 
+// Boot: Firebase detecta sessão automaticamente via onAuthStateChanged
+// Se Firebase não estiver configurado, cai no initLogin() normal
+initPWA();
 initFirebase();
-initLogin();
+if (_firebaseReady) {
+  initFirebaseAuth(); // handles F5 session restore + redirects to app or login
+} else {
+  initLogin(); // modo demo sem Firebase
+}
 </script>
 </body>
 </html>
