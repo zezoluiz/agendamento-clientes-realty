@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR" data-theme="dark">
-<script>
+     <script>
      window.FIREBASE_CONFIG = {
           apiKey: "AIzaSyBftPck1xyz4ZIiyNxWaiNBpDeEoSv91sg",
      }
@@ -1532,26 +1532,44 @@ label.fl {
       <span class="login-logo-text" id="ll-name">ImóvelAgenda</span>
     </div>
     <div class="login-title">Bem-vindo de volta</div>
-    <div class="login-sub">Selecione seu perfil ou entre com email</div>
-    <div id="login-profiles-wrap">
+    <div class="login-sub" id="login-sub-text">Entre com seu email e senha</div>
+
+    <!-- Email+senha (padrão) -->
+    <div id="login-email-wrap" style="margin-bottom:4px">
+      <div class="fg">
+        <label class="fl">Email</label>
+        <input class="fi" id="login-email" type="email" placeholder="seu@email.com"
+          autocomplete="email"
+          onkeydown="if(event.key==='Enter')document.getElementById('login-senha').focus()">
+      </div>
+      <div class="fg" style="margin-top:10px">
+        <label class="fl">Senha</label>
+        <div style="position:relative">
+          <input class="fi" id="login-senha" type="password" placeholder="••••••••"
+            autocomplete="current-password" style="padding-right:42px"
+            onkeydown="if(event.key==='Enter')doLogin()">
+          <button type="button" onclick="var i=document.getElementById('login-senha');i.type=i.type==='password'?'text':'password'"
+            style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:.85rem;padding:4px">👁</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Perfis demo (oculto por padrão) -->
+    <div id="login-profiles-wrap" style="display:none">
       <div class="login-profiles" id="login-profiles"></div>
     </div>
-    <div id="login-email-wrap" style="display:none;margin-bottom:10px">
-      <div class="fg" style="margin-bottom:10px">
-        <label class="fl">Email</label>
-        <input class="fi" id="login-email" type="email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')document.getElementById('login-senha').focus()">
-      </div>
-      <div class="fg">
-        <label class="fl">Senha</label>
-        <input class="fi" id="login-senha" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
-      </div>
-    </div>
-    <div id="login-error" style="display:none;color:var(--red);font-size:.78rem;margin-bottom:10px;padding:8px 12px;background:var(--red-d);border-radius:8px;text-align:center"></div>
-    <button class="btn-login" onclick="doLogin()">
-      <span>Entrar na plataforma</span><span>→</span>
+
+    <div id="login-error" style="display:none;color:var(--red);font-size:.78rem;margin:8px 0;padding:8px 12px;background:var(--red-d);border-radius:8px;text-align:center"></div>
+
+    <button class="btn-login" onclick="doLogin()" style="margin-top:14px">
+      <span>Entrar</span><span>→</span>
     </button>
-    <div style="text-align:center;margin-top:10px">
-      <button id="login-mode-btn" onclick="toggleLoginMode()" style="background:none;border:none;color:var(--text3);font-size:.75rem;cursor:pointer;text-decoration:underline">📧 Entrar com email</button>
+
+    <div style="text-align:center;margin-top:12px">
+      <button id="login-mode-btn" onclick="toggleLoginMode()"
+        style="background:none;border:none;color:var(--text3);font-size:.73rem;cursor:pointer;text-decoration:underline;padding:4px 8px">
+        🎭 Usar perfil de demonstração
+      </button>
     </div>
   </div>
 </div>
@@ -2978,8 +2996,7 @@ const DB = {
   company: { name:'ImóvelAgenda', slogan:'Seu imóvel dos sonhos', logo:'', color:'#D4973A' },
 
   users: [
-    { id:1, nome:'Master',         email:'master@imob.com',   role:'master',   senha:'master',   ativo:true, criado:'2025-01-01', tel:'', bio:'', orgId:'org1' },
-    { id:9, nome:'Admin Master',   email:'admin@imob.com',    role:'admin',    senha:'admin',    ativo:true, criado:'2025-01-01', tel:'', bio:'', orgId:'org1' },
+    { id:1, nome:'Administrador',   email:'admin@imob.com',    role:'admin',    senha:'admin123', ativo:true, criado:'2025-01-01', tel:'', bio:'', orgId:'org1' },
     { id:2, nome:'Ana Ferreira',   email:'ana@imob.com',      role:'gerente',  senha:'gerente',  ativo:true, criado:'2025-02-01', tel:'(11) 98001-1111', bio:'Gerente sênior com 10 anos de mercado.' },
     { id:3, nome:'Ricardo Costa',  email:'ricardo@imob.com',  role:'corretor', senha:'corretor', ativo:true, criado:'2025-03-01', tel:'(11) 97002-2222', bio:'Especialista em imóveis residenciais.' },
     { id:4, nome:'Juliana Pires',  email:'juliana@imob.com',  role:'corretor', senha:'corretor', ativo:true, criado:'2025-03-15', tel:'(11) 96003-3333', bio:'' },
@@ -3112,13 +3129,13 @@ function fmt(str) { if(!str) return ''; const [y,m,d]=str.split('-'); return `${
 function fmtMoney(v, fin) { return fin==='Locação'?`R$ ${v.toLocaleString('pt-BR')}/mês`:`R$ ${v.toLocaleString('pt-BR')}`; }
 function initials(name) { return name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
 function roleColor(role) {
-  return {master:'#FF4444',admin:'#A47EFA',gerente:'#5B9EF0',corretor:'#D4973A',cliente:'#50C17A'}[role]||'#888';
+  return {admin:'#A47EFA',gerente:'#5B9EF0',corretor:'#D4973A',cliente:'#50C17A'}[role]||'#888';
 }
 function roleBg(role) {
-  return {master:'rgba(255,60,60,.18)',admin:'rgba(164,126,250,.15)',gerente:'rgba(91,158,240,.15)',corretor:'rgba(212,151,58,.15)',cliente:'rgba(80,193,122,.15)'}[role]||'#333';
+  return {admin:'rgba(164,126,250,.15)',gerente:'rgba(91,158,240,.15)',corretor:'rgba(212,151,58,.15)',cliente:'rgba(80,193,122,.15)'}[role]||'#333';
 }
 function roleLabel(role) {
-  return {master:'Master',admin:'Administrador',gerente:'Gerente',corretor:'Corretor',cliente:'Cliente'}[role]||role;
+  return {admin:'Administrador',gerente:'Gerente',corretor:'Corretor',cliente:'Cliente'}[role]||role;
 }
 function badge(status) {
   const map={agendado:'Agendado',confirmado:'Confirmado',realizado:'Realizado',cancelado:'Cancelado',disponivel:'Disponível',reservado:'Reservado',vendido:'Vendido',ativo:'Ativo'};
@@ -3202,6 +3219,21 @@ function scopedVisitasBadge() {
 /* ═══════════════════════════════════════════════════════════════
    LOGIN
 ═══════════════════════════════════════════════════════════════ */
+/* ── Role hierarchy ─────────────────────────────────────────
+   admin    → admin, gerente, corretor, cliente (mesma org)
+   gerente  → corretor, cliente
+   corretor → apenas cliente
+──────────────────────────────────────────────────────────── */
+const ROLE_ORDER  = ['cliente','corretor','gerente','admin'];
+const ROLE_LABELS = { admin:'Administrador', gerente:'Gerente', corretor:'Corretor', cliente:'Cliente' };
+
+function rolesQuePosCadastrar(role) {
+  if (role === 'admin')    return ['admin','gerente','corretor','cliente'];
+  if (role === 'gerente')  return ['corretor','cliente'];
+  if (role === 'corretor') return ['cliente'];
+  return [];
+}
+
 // Login state — module-level so doLogin/selectProfile are global
 const _LOGIN_PROFILES = [
   { userId:1, label:'Administrador',        role:'admin'    },
@@ -3236,8 +3268,32 @@ function _renderLoginProfiles() {
 }
 
 function doLogin() {
-  const u = DB.users.find(x => x.id === _loginSelected);
-  if (!u) return;
+  const emailEl   = document.getElementById('login-email');
+  const senhaEl   = document.getElementById('login-senha');
+  const errEl     = document.getElementById('login-error');
+  const emailWrap = document.getElementById('login-email-wrap');
+  if (errEl) errEl.style.display = 'none';
+  let u = null;
+
+  if (emailWrap && emailWrap.style.display !== 'none') {
+    // Email + senha mode (default)
+    const email = (emailEl?.value || '').trim().toLowerCase();
+    const senha = senhaEl?.value || '';
+    if (!email) {
+      if (errEl) { errEl.textContent = 'Digite seu email'; errEl.style.display = ''; }
+      emailEl?.focus(); return;
+    }
+    u = DB.users.find(x => x.email.toLowerCase() === email && x.senha === senha && x.ativo);
+    if (!u) {
+      if (errEl) { errEl.textContent = 'Email ou senha incorretos'; errEl.style.display = ''; }
+      senhaEl?.select(); return;
+    }
+  } else {
+    // Demo profile picker
+    u = DB.users.find(x => x.id === _loginSelected);
+    if (!u) { showToast('Selecione um perfil', 'error'); return; }
+  }
+
   state.currentUser = u;
   const screen = document.getElementById('login-screen');
   screen.style.animation = 'fadeUp .3s ease reverse both';
@@ -5136,10 +5192,9 @@ function maskCNPJ(inp) {
 function renderUsuarios() {
   const me = state.currentUser;
   const myOrd = ROLE_ORDER.indexOf(me.role);
-  const visible = DB.users.filter(u => me.role==='master' || u.orgId===(me.orgId||'org1'));
+  const visible = DB.users.filter(u => u.orgId===(me.orgId||'org1') || me.role==='admin');
   document.getElementById('usuarios-tbody').innerHTML = visible.map(u => {
-    const canAct = u.id!==me.id && u.role!=='master' &&
-      (me.role==='master' || ROLE_ORDER.indexOf(u.role)<myOrd);
+    const canAct = u.id!==me.id && ROLE_ORDER.indexOf(u.role)<myOrd || myOrd===ROLE_ORDER.length-1;
     return `<tr>
       <td><div style="display:flex;align-items:center;gap:9px">
         <div style="width:30px;height:30px;border-radius:50%;background:${roleBg(u.role)};color:${roleColor(u.role)};display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;flex-shrink:0">${initials(u.nome)}</div>
@@ -5707,25 +5762,32 @@ function initPWA() {
   }
 
   // ── Install prompt (Android Chrome + Edge) ───────────────────
+  // Never show banner if already running as installed PWA
+  const _isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+  if (_isStandalone) {
+    try { localStorage.setItem('pwa-dismissed','1'); } catch(e) {}
+    return;
+  }
+
   window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault();
     deferredPrompt = e;
-    // Only show if not dismissed this session
-    try { if (sessionStorage.getItem('pwa-dismissed')) return; } catch(e) {}
-    setTimeout(() => showPWABanner(), 3000);
+    try { if (localStorage.getItem('pwa-dismissed')) return; } catch(e) {}
+    setTimeout(() => showPWABanner(), 4000);
   });
 
   window.addEventListener('appinstalled', () => {
     showToast('App instalado! 🎉 Abra pela tela inicial.', 'success');
     hidePWABanner();
-    try { sessionStorage.setItem('pwa-dismissed', '1'); } catch(e) {}
+    try { localStorage.setItem('pwa-dismissed','1'); } catch(e) {}
   });
 
   // ── iOS Safari: show install instructions ────────────────────
   const isIOS = /iP(hone|ad|od)/i.test(navigator.userAgent);
   const isInStandalone = window.navigator.standalone === true;
   if (isIOS && !isInStandalone) {
-    try { if (sessionStorage.getItem('pwa-dismissed')) return; } catch(e) {}
+    try { if (localStorage.getItem('pwa-dismissed')) return; } catch(e) {}
     setTimeout(() => {
       // Update banner text for iOS
       const title = document.querySelector('.pwa-banner-title');
@@ -5764,7 +5826,7 @@ function installPWA() {
 
 function dismissPWA() {
   hidePWABanner();
-  try { sessionStorage.setItem('pwa-dismissed', '1'); } catch(e) {}
+  try { localStorage.setItem('pwa-dismissed','1'); } catch(e) {}
 }
 
 function requestNotifPermission() {
