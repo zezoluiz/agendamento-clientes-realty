@@ -6607,11 +6607,35 @@ function initFirebaseAuth() {
 async function firebaseLogin(email, senha) {
   if (!_firebaseReady || !_auth) return null;
   try {
+    // Tenta fazer login normalmente
     const cred = await _auth.signInWithEmailAndPassword(email, senha);
     return cred.user;
   } catch(e) {
+    // Conta não existe no Firebase Auth ainda?
+    // Verifica se o usuário é válido no DB e cria automaticamente (primeiro acesso)
+    if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
+      const dbUser = DB.users.find(u =>
+        u.email.toLowerCase() === email.toLowerCase() && u.senha === senha && u.ativo
+      );
+      if (dbUser) {
+        // Usuário existe no DB mas não no Firebase Auth — cria a conta agora
+        try {
+          const cred2 = await _auth.createUserWithEmailAndPassword(email, senha);
+          await cred2.user.updateProfile({ displayName: dbUser.nome });
+          console.log('✅ Conta Firebase Auth criada para', email);
+          return cred2.user;
+        } catch(e2) {
+          if (e2.code === 'auth/email-already-in-use') {
+            // Conta existe com senha diferente
+            throw new Error('Senha incorreta');
+          }
+          throw new Error(e2.message);
+        }
+      }
+      throw new Error('Email ou senha incorretos');
+    }
+    // Outros erros
     const msgs = {
-      'auth/user-not-found':   'Email não encontrado',
       'auth/wrong-password':   'Senha incorreta',
       'auth/invalid-email':    'Email inválido',
       'auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos.',
