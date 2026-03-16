@@ -1746,7 +1746,7 @@ label.fl {
         <div class="sync-bar" id="gcal-sync-bar">
           <div class="sync-bar-dot"></div>
           <span style="font-size:.8rem;color:var(--text2)">Google Agenda sincronizado</span>
-          <span class="gcal-badge synced" style="margin-left:4px">✓ <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="c5a6aaabb1a485a2a8a4aca9eba6aaa8">[email&#160;protected]</a></span>
+          <span class="gcal-badge synced" style="margin-left:4px">✓ conta@gmail.com</span>
           <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="triggerGCalSync()">🔄 Sincronizar</button>
           <button class="btn btn-ghost btn-sm" onclick="disconnectGCal()" style="color:var(--text3)">Desconectar</button>
         </div>
@@ -2243,7 +2243,7 @@ label.fl {
                   <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
                     <div style="font-size:1.5rem">📅</div>
                     <div style="flex:1">
-                      <div style="font-size:.84rem;font-weight:600"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="80e3efeef4e1c0e7ede1e9ecaee3efed">[email&#160;protected]</a></div>
+                      <div style="font-size:.84rem;font-weight:600">conta@gmail.com</div>
                       <div style="font-size:.72rem;color:var(--green);margin-top:2px">✓ Sincronizado · última sync: hoje 14:30</div>
                     </div>
                     <button class="btn btn-ghost btn-sm" onclick="disconnectGCal()">Desconectar</button>
@@ -2978,7 +2978,7 @@ label.fl {
 <!-- Toast container -->
 <div class="toast-container" id="toast-container"></div>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+<script>
 /* ═══════════════════════════════════════════════════════════════
    DATA
 ═══════════════════════════════════════════════════════════════ */
@@ -5814,10 +5814,14 @@ function initPWA() {
   // data: URL trick is also blocked, so we use a JS-generated response via fetch intercept.
   // Best we can do in a single HTML file: register a minimal SW via importScripts trick.
   if ('serviceWorker' in navigator) {
-    // Register real same-origin SW (required for Android PWA install prompt)
-    navigator.serviceWorker.register('./sw.js', { scope: './' })
-      .then(reg => console.log('SW registered:', reg.scope))
-      .catch(err => console.warn('SW registration failed:', err));
+    // Só registra SW em HTTPS real (não no preview do Claude nem em blob:)
+    const host = location.hostname;
+    const isRealHost = host !== 'localhost' && !host.includes('claudeusercontent');
+    if (isRealHost) {
+      navigator.serviceWorker.register('./sw.js', { scope: './' })
+        .then(reg => console.log('SW registrado:', reg.scope))
+        .catch(() => {}); // silencia erros no preview
+    }
   }
 
   // ── Install prompt (Android Chrome + Edge) ───────────────────
@@ -6571,27 +6575,98 @@ function startRealtimeSync() {
    FIREBASE AUTH — Login real com email/senha
 ═══════════════════════════════════════════════════════════════ */
 
+/* Popula o Firestore com os dados em memória na primeira vez */
+async function seedFirestoreIfEmpty() {
+  if (!_firebaseReady || !_db) return;
+  try {
+    // Verifica se já tem dados
+    const snap = await _db.collection('users').limit(1).get();
+    if (!snap.empty) return; // já tem dados, não precisa seed
+
+    console.log('🌱 Firestore vazio — populando com dados iniciais...');
+    const batch = _db.batch();
+
+    // Users
+    DB.users.forEach(u => {
+      batch.set(_db.collection('users').doc(String(u.id)), u);
+    });
+    // Imóveis
+    DB.imoveis.forEach(im => {
+      batch.set(_db.collection('imoveis').doc(String(im.id)), im);
+    });
+    // Visitas
+    DB.visitas.forEach(v => {
+      batch.set(_db.collection('visitas').doc(String(v.id)), v);
+    });
+    // Clientes
+    DB.clientes.forEach(cl => {
+      batch.set(_db.collection('clientes').doc(String(cl.id)), cl);
+    });
+    // Corretores
+    DB.corretores.forEach(co => {
+      batch.set(_db.collection('corretores').doc(String(co.id)), co);
+    });
+    // Company config
+    batch.set(_db.collection('company').doc('config'), DB.company);
+    // Kanban
+    Object.entries(DB.kanban).forEach(([col, cards]) => {
+      batch.set(_db.collection('kanban').doc(col), { cards });
+    });
+
+    await batch.commit();
+    console.log('✅ Firestore populado com sucesso');
+  } catch(e) {
+    console.warn('Erro no seed do Firestore:', e.message);
+  }
+}
+
 /* Inicializa auth listener: detecta sessão existente no F5 */
 function initFirebaseAuth() {
   if (!_firebaseReady || !_auth) return;
 
   _auth.onAuthStateChanged(async (firebaseUser) => {
     if (firebaseUser) {
-      // Usuário já logado (F5 ou reabrir aba)
-      // Busca perfil no Firestore usando o email
       try {
-        const snap = await _db.collection('users')
-          .where('email', '==', firebaseUser.email).limit(1).get();
-        if (!snap.empty) {
-          await loadFromFirebase();
-          state.currentUser = _fromDoc(snap.docs[0]);
-          document.getElementById('login-screen').style.display = 'none';
-          document.getElementById('app').classList.add('visible');
-          initApp();
-          startRealtimeSync();
+        // Carrega todos os dados do Firestore primeiro
+        await loadFromFirebase();
+
+        // Busca perfil pelo email
+        let user = DB.users.find(u => u.email.toLowerCase() === firebaseUser.email.toLowerCase());
+
+        if (!user) {
+          // Firestore vazio — usa usuário do DB em memória (primeiro acesso)
+          user = DB.users.find(u => u.email.toLowerCase() === firebaseUser.email.toLowerCase());
         }
+
+        if (!user) {
+          // Usuário autenticado mas sem perfil no sistema — cria admin padrão
+          user = {
+            id: Date.now(), nome: firebaseUser.displayName || firebaseUser.email.split('@')[0],
+            email: firebaseUser.email, role: 'admin', ativo: true,
+            criado: new Date().toISOString().split('T')[0],
+            tel: '', bio: '', orgId: 'org1', senha: ''
+          };
+          DB.users.push(user);
+        }
+
+        // Salva/atualiza perfil no Firestore
+        await _saveDoc('users', user);
+
+        // Seed dados iniciais no Firestore se estiver vazio
+        await seedFirestoreIfEmpty();
+
+        state.currentUser = user;
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app').classList.add('visible');
+        initApp();
+        startRealtimeSync();
       } catch(e) {
-        console.warn('Erro ao restaurar sessão:', e.message);
+        console.warn('Erro ao entrar:', e.message);
+        // Mostra erro amigável no login
+        const errEl = document.getElementById('login-error');
+        if (errEl) { errEl.textContent = 'Erro ao carregar perfil. Tente novamente.'; errEl.style.display = ''; }
+        // Faz logout do Firebase Auth para permitir nova tentativa
+        _auth.signOut().catch(()=>{});
       }
     } else {
       // Não logado — mostra tela de login
