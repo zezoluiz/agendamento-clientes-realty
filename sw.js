@@ -1,39 +1,6698 @@
-/* ImóvelAgenda Pro — Service Worker
-   Hospedado na mesma origem = elegível para instalação no Android
-*/
-const CACHE_NAME = 'imovel-agenda-v1';
-const ASSETS = ['./', './index.html'];
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ImóvelAgenda">
+<meta name="theme-color" content="#0C0C0F">
+<meta name="description" content="Plataforma profissional de gestão de visitas imobiliárias">
+<link rel="manifest" id="pwa-manifest">
+<title>ImóvelAgenda Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<!-- ══ FIREBASE CONFIG ══════════════════════════════════════
+     Cole suas credenciais do Firebase abaixo.
+     Deixe apiKey como "COLE_AQUI" para usar no modo offline.
+══════════════════════════════════════════════════════════ -->
+<script>
+window.FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyBftPck1xyz4ZIiyNxWaiNBpDeEoSv91sg",
+  authDomain:        "agenda-online-hn.firebaseapp.com",
+  projectId:         "agenda-online-hn",
+  storageBucket:     "agenda-online-hn.firebasestorage.app",
+  messagingSenderId: "848852820918",
+  appId:             "1:848852820918:web:fd37176261c19ac740d717",
+  measurementId:     "G-L2R944HQ68"
+};
+</script>
+<style>
+/* ── TOKENS ─────────────────────────────────────────────── */
+:root {
+  --amber: #D4973A;
+  --amber2: #F0BE6A;
+  --amber-dim: rgba(212,151,58,.12);
+  --amber-glow: rgba(212,151,58,.25);
 
-self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(ASSETS))
-      .then(() => self.skipWaiting())
+  /* dark */
+  --bg:   #0C0C0F;
+  --bg2:  #131318;
+  --bg3:  #1A1A22;
+  --bg4:  #222230;
+  --border:  rgba(255,255,255,.07);
+  --border2: rgba(255,255,255,.13);
+  --text:  #EDE9E3;
+  --text2: #9E9A93;
+  --text3: #5C5A55;
+
+  --green: #50C17A;  --green-d: rgba(80,193,122,.14);
+  --red:   #E05555;  --red-d:   rgba(224,85,85,.14);
+  --blue:  #5B9EF0;  --blue-d:  rgba(91,158,240,.14);
+  --purple:#A47EFA;  --purple-d:rgba(164,126,250,.14);
+
+  --radius: 14px;
+  --shadow: 0 8px 32px rgba(0,0,0,.45);
+  --transition: .22s cubic-bezier(.4,0,.2,1);
+}
+[data-theme="light"] {
+  --bg:   #F4F2EE;
+  --bg2:  #FFFFFF;
+  --bg3:  #F0EDE8;
+  --bg4:  #E8E4DE;
+  --border:  rgba(0,0,0,.08);
+  --border2: rgba(0,0,0,.14);
+  --text:  #1A1814;
+  --text2: #5A5650;
+  --text3: #999390;
+}
+
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+html,body { height:100%; overflow:hidden; }
+body {
+  font-family: 'Outfit', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  transition: background var(--transition), color var(--transition);
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width:5px; height:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--bg4); border-radius:3px; }
+
+/* ══════════════════════════════════════════════
+   LOGIN SCREEN
+══════════════════════════════════════════════ */
+#login-screen {
+  position:fixed; inset:0; z-index:999;
+  display:flex; align-items:center; justify-content:center;
+  background: var(--bg);
+  overflow:hidden;
+}
+.login-bg {
+  position:absolute; inset:0;
+  background: radial-gradient(ellipse 70% 60% at 60% 40%, rgba(212,151,58,.08) 0%, transparent 70%),
+              radial-gradient(ellipse 40% 40% at 20% 80%, rgba(91,158,240,.06) 0%, transparent 60%);
+}
+.login-grid-lines {
+  position:absolute; inset:0; opacity:.03;
+  background-image: linear-gradient(var(--text) 1px, transparent 1px),
+                    linear-gradient(90deg, var(--text) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+.login-box {
+  position:relative; z-index:2;
+  width:420px; max-width:95vw;
+  background: var(--bg2);
+  border:1px solid var(--border2);
+  border-radius:22px;
+  padding:40px;
+  box-shadow: var(--shadow), 0 0 80px rgba(212,151,58,.06);
+  animation: fadeUp .5s ease both;
+}
+@keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:none} }
+.login-logo {
+  display:flex; align-items:center; gap:12px;
+  margin-bottom:32px;
+}
+.login-logo-icon {
+  width:44px; height:44px; border-radius:12px;
+  background:linear-gradient(135deg,var(--amber),var(--amber2));
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.3rem; flex-shrink:0;
+}
+.login-logo-text {
+  font-family:'Playfair Display',serif;
+  font-size:1.4rem; font-weight:600;
+}
+.login-title {
+  font-family:'Playfair Display',serif;
+  font-size:1.8rem; font-weight:700; margin-bottom:6px;
+  line-height:1.2;
+}
+.login-sub { font-size:.85rem; color:var(--text2); margin-bottom:28px; }
+.login-profiles {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:10px; margin-bottom:24px;
+}
+.profile-card {
+  border:2px solid var(--border);
+  border-radius:12px; padding:14px 12px;
+  cursor:pointer; transition:all var(--transition);
+  text-align:center;
+}
+.profile-card:hover { border-color:var(--amber); background:var(--amber-dim); }
+.profile-card.selected { border-color:var(--amber); background:var(--amber-dim); }
+.profile-avatar {
+  width:40px; height:40px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:.8rem; font-weight:700;
+  margin:0 auto 8px;
+}
+.profile-card-name { font-size:.82rem; font-weight:600; color:var(--text); }
+.profile-card-role { font-size:.7rem; color:var(--text3); margin-top:2px; }
+.btn-login {
+  width:100%; padding:13px;
+  background:linear-gradient(135deg,var(--amber),var(--amber2));
+  border:none; border-radius:10px;
+  font-family:'Outfit',sans-serif;
+  font-size:.9rem; font-weight:600;
+  color:#000; cursor:pointer;
+  transition:all var(--transition);
+  display:flex; align-items:center; justify-content:center; gap:8px;
+}
+.btn-login:hover { transform:translateY(-1px); box-shadow:0 6px 24px var(--amber-glow); }
+
+/* ══════════════════════════════════════════════
+   APP SHELL
+══════════════════════════════════════════════ */
+#app { display:flex; height:100vh; opacity:0; transition:opacity .4s; }
+#app.visible { opacity:1; }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width:252px; min-width:252px;
+  background:var(--bg2);
+  border-right:1px solid var(--border);
+  display:flex; flex-direction:column;
+  overflow:hidden;
+  transition:width var(--transition), min-width var(--transition);
+}
+.sidebar.collapsed { width:64px; min-width:64px; }
+.sidebar-logo {
+  padding:20px 16px;
+  display:flex; align-items:center; gap:10px;
+  border-bottom:1px solid var(--border);
+  min-height:68px;
+}
+.logo-mark {
+  width:36px; height:36px; border-radius:10px; flex-shrink:0;
+  background:linear-gradient(135deg,var(--amber),var(--amber2));
+  display:flex; align-items:center; justify-content:center;
+  font-size:1rem; overflow:hidden;
+}
+.logo-mark img { width:100%; height:100%; object-fit:cover; border-radius:10px; }
+.logo-wordmark {
+  font-family:'Playfair Display',serif;
+  font-size:1.1rem; font-weight:600;
+  white-space:nowrap; overflow:hidden;
+  opacity:1; transition:opacity var(--transition);
+}
+.sidebar.collapsed .logo-wordmark,
+.sidebar.collapsed .nav-label,
+.sidebar.collapsed .nav-text,
+.sidebar.collapsed .nav-badge,
+.sidebar.collapsed .user-details,
+.sidebar.collapsed .sidebar-section-title { opacity:0; pointer-events:none; width:0; }
+
+.sidebar-nav { flex:1; overflow-y:auto; padding:12px 8px; }
+.nav-label {
+  font-size:.6rem; font-weight:700; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--text3);
+  padding:8px 10px 4px; white-space:nowrap;
+  transition:opacity var(--transition);
+}
+.nav-item {
+  display:flex; align-items:center; gap:10px;
+  padding:9px 10px; border-radius:9px;
+  cursor:pointer; color:var(--text2);
+  font-size:.84rem; font-weight:400;
+  transition:all var(--transition);
+  position:relative; white-space:nowrap;
+  margin-bottom:1px;
+}
+.nav-item:hover { background:var(--bg3); color:var(--text); }
+.nav-item.active { background:var(--amber-dim); color:var(--amber2); }
+.nav-item.active .nav-icon { color:var(--amber); }
+.nav-item.active::before {
+  content:''; position:absolute; left:0; top:25%; bottom:25%;
+  width:3px; background:var(--amber); border-radius:0 3px 3px 0;
+}
+.nav-icon { font-size:1rem; width:22px; text-align:center; flex-shrink:0; }
+.nav-text { flex:1; transition:opacity var(--transition); }
+.nav-badge {
+  margin-left:auto; background:var(--amber);
+  color:#000; font-size:.62rem; font-weight:700;
+  padding:2px 6px; border-radius:20px; flex-shrink:0;
+}
+
+.sidebar-bottom {
+  border-top:1px solid var(--border); padding:10px 8px;
+}
+.user-pill {
+  display:flex; align-items:center; gap:10px;
+  padding:8px 10px; border-radius:9px; cursor:pointer;
+  transition:background var(--transition);
+}
+.user-pill:hover { background:var(--bg3); }
+.user-ava {
+  width:32px; height:32px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:.72rem; font-weight:700; flex-shrink:0;
+}
+.user-details { min-width:0; }
+.user-name-sm { font-size:.8rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.user-role-sm { font-size:.68rem; color:var(--text3); }
+
+/* ── MAIN ── */
+.main { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
+.topbar {
+  background:var(--bg2); border-bottom:1px solid var(--border);
+  padding:0 24px;
+  display:flex; align-items:center; gap:14px;
+  height:64px; flex-shrink:0;
+}
+.sidebar-toggle {
+  width:34px; height:34px; border-radius:8px;
+  background:none; border:1px solid var(--border);
+  cursor:pointer; color:var(--text2);
+  display:flex; align-items:center; justify-content:center;
+  font-size:1rem; transition:all var(--transition);
+  flex-shrink:0;
+}
+.sidebar-toggle:hover { background:var(--bg3); color:var(--text); }
+.page-heading { flex:1; min-width:0; }
+.page-heading h1 {
+  font-family:'Playfair Display',serif;
+  font-size:1.35rem; font-weight:600; line-height:1;
+}
+.page-heading p { font-size:.75rem; color:var(--text3); margin-top:3px; }
+.topbar-right { display:flex; align-items:center; gap:8px; }
+
+/* theme toggle */
+.theme-toggle {
+  width:34px; height:34px; border-radius:8px;
+  background:none; border:1px solid var(--border);
+  cursor:pointer; color:var(--text2);
+  display:flex; align-items:center; justify-content:center;
+  transition:all var(--transition);
+}
+.theme-toggle:hover { background:var(--bg3); }
+
+.notif-btn {
+  position:relative; width:34px; height:34px; border-radius:8px;
+  background:none; border:1px solid var(--border);
+  cursor:pointer; color:var(--text2);
+  display:flex; align-items:center; justify-content:center;
+  transition:all var(--transition);
+}
+.notif-btn:hover { background:var(--bg3); }
+.notif-dot-badge {
+  position:absolute; top:5px; right:5px;
+  width:8px; height:8px; border-radius:50%;
+  background:var(--amber); border:2px solid var(--bg2);
+}
+
+/* ── BTN SYSTEM ── */
+.btn {
+  padding:8px 16px; border-radius:9px;
+  font-size:.8rem; font-weight:500;
+  font-family:'Outfit',sans-serif;
+  cursor:pointer; border:none;
+  display:inline-flex; align-items:center; gap:7px;
+  transition:all var(--transition); text-decoration:none;
+  white-space:nowrap;
+}
+.btn-primary { background:var(--amber); color:#000; }
+.btn-primary:hover { background:var(--amber2); transform:translateY(-1px); box-shadow:0 4px 16px var(--amber-glow); }
+.btn-ghost { background:transparent; border:1px solid var(--border2); color:var(--text2); }
+.btn-ghost:hover { background:var(--bg3); color:var(--text); }
+.btn-danger { background:var(--red-d); color:var(--red); border:1px solid rgba(224,85,85,.2); }
+.btn-danger:hover { background:rgba(224,85,85,.22); }
+.btn-sm { padding:6px 12px; font-size:.75rem; border-radius:7px; }
+.btn-xs { padding:4px 9px; font-size:.7rem; border-radius:6px; }
+.icon-btn {
+  width:30px; height:30px; border-radius:7px;
+  background:none; border:1px solid var(--border);
+  color:var(--text3); cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center;
+  font-size:.82rem; transition:all var(--transition);
+}
+.icon-btn:hover { background:var(--bg3); color:var(--text); border-color:var(--border2); }
+.icon-btn.red:hover { background:var(--red-d); color:var(--red); border-color:rgba(224,85,85,.3); }
+.icon-btn.green:hover { background:var(--green-d); color:var(--green); }
+.icon-btn.amber:hover { background:var(--amber-dim); color:var(--amber2); }
+
+/* ── CONTENT AREA ── */
+.content { flex:1; overflow-y:auto; padding:24px; }
+
+/* ── PAGE / FADE ── */
+.page { display:none; animation:pageIn .25s ease both; }
+.page.active { display:block; }
+@keyframes pageIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+/* ══════════════════════════════════════════════
+   CARD / TABLE SYSTEM
+══════════════════════════════════════════════ */
+.card {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:var(--radius); overflow:hidden;
+  margin-bottom:18px;
+}
+.card-header {
+  padding:15px 18px;
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:10px;
+}
+.card-title { font-size:.88rem; font-weight:600; }
+.card-actions { margin-left:auto; display:flex; gap:8px; align-items:center; }
+.card-body { padding:18px; }
+
+/* stat cards */
+.stats-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(185px,1fr)); gap:14px; margin-bottom:22px; }
+.stat-card {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:var(--radius); padding:18px;
+  position:relative; overflow:hidden;
+  transition:border-color var(--transition), transform var(--transition);
+}
+.stat-card:hover { border-color:var(--border2); transform:translateY(-2px); }
+.stat-stripe {
+  position:absolute; top:0; right:0; left:0; height:3px;
+  border-radius:var(--radius) var(--radius) 0 0;
+}
+.stat-icon { font-size:1.2rem; margin-bottom:10px; }
+.stat-val {
+  font-family:'Playfair Display',serif;
+  font-size:2rem; font-weight:700; line-height:1;
+  margin-bottom:4px;
+}
+.stat-lbl { font-size:.72rem; color:var(--text3); font-weight:500; }
+.stat-trend { font-size:.7rem; margin-top:6px; }
+
+/* table */
+.tbl-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; }
+th {
+  padding:10px 14px; text-align:left;
+  font-size:.67rem; font-weight:700;
+  letter-spacing:.08em; text-transform:uppercase;
+  color:var(--text3); background:var(--bg3);
+  border-bottom:1px solid var(--border);
+  white-space:nowrap;
+}
+td {
+  padding:12px 14px; font-size:.8rem;
+  color:var(--text2); border-bottom:1px solid var(--border);
+  vertical-align:middle;
+}
+tr:last-child td { border-bottom:none; }
+tbody tr:hover td { background:var(--bg3); }
+.cell-main { color:var(--text); font-weight:500; }
+.td-actions { display:flex; gap:5px; }
+
+/* status badges */
+.badge {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:3px 9px; border-radius:20px;
+  font-size:.68rem; font-weight:600; white-space:nowrap;
+}
+.badge-dot { width:5px; height:5px; border-radius:50%; }
+.s-agendado   { background:var(--blue-d);   color:var(--blue);   }  .s-agendado   .badge-dot { background:var(--blue);   }
+.s-confirmado { background:var(--green-d);  color:var(--green);  }  .s-confirmado .badge-dot { background:var(--green);  }
+.s-realizado  { background:var(--amber-dim);color:var(--amber2); }  .s-realizado  .badge-dot { background:var(--amber);  }
+.s-cancelado  { background:var(--red-d);    color:var(--red);    }  .s-cancelado  .badge-dot { background:var(--red);    }
+.s-disponivel { background:var(--green-d);  color:var(--green);  }  .s-disponivel .badge-dot { background:var(--green);  }
+.s-reservado  { background:var(--amber-dim);color:var(--amber2); }  .s-reservado  .badge-dot { background:var(--amber);  }
+.s-vendido    { background:var(--red-d);    color:var(--red);    }  .s-vendido    .badge-dot { background:var(--red);    }
+.s-ativo      { background:var(--green-d);  color:var(--green);  }  .s-ativo      .badge-dot { background:var(--green);  }
+.role-admin    { background:var(--purple-d); color:var(--purple); }
+.role-gerente  { background:var(--blue-d);   color:var(--blue);   }
+.role-corretor { background:var(--amber-dim);color:var(--amber2); }
+.role-cliente  { background:var(--green-d);  color:var(--green);  }
+
+/* ══════════════════════════════════════════════
+   MODAL
+══════════════════════════════════════════════ */
+.modal-overlay {
+  display:none; position:fixed; inset:0;
+  background:rgba(0,0,0,.65); z-index:200;
+  align-items:center; justify-content:center;
+  backdrop-filter:blur(6px);
+  padding:20px;
+}
+.modal-overlay.open { display:flex; }
+.modal {
+  background:var(--bg2); border:1px solid var(--border2);
+  border-radius:18px; width:520px; max-width:100%;
+  max-height:88vh; overflow-y:auto;
+  animation:modalIn .22s cubic-bezier(.34,1.3,.64,1) both;
+  box-shadow:var(--shadow);
+}
+.modal-lg { width:720px; }
+.modal-xl { width:900px; }
+@keyframes modalIn { from{opacity:0;transform:scale(.94)} to{opacity:1;transform:none} }
+.modal-header {
+  padding:20px 22px 14px;
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:10px;
+  position:sticky; top:0; background:var(--bg2); z-index:1;
+}
+.modal-title { font-family:'Playfair Display',serif; font-size:1.15rem; font-weight:600; }
+.modal-close {
+  margin-left:auto; background:none; border:none;
+  color:var(--text3); font-size:1.1rem; cursor:pointer;
+  width:28px; height:28px; border-radius:6px;
+  display:flex; align-items:center; justify-content:center;
+  transition:all var(--transition);
+}
+.modal-close:hover { background:var(--bg3); color:var(--text); }
+.modal-body { padding:18px 22px; }
+.modal-footer {
+  padding:14px 22px; border-top:1px solid var(--border);
+  display:flex; gap:9px; justify-content:flex-end;
+  position:sticky; bottom:0; background:var(--bg2);
+}
+
+/* ── FORM ── */
+.fg { margin-bottom:13px; }
+.fg-row { display:grid; gap:12px; }
+.fg-row.c2 { grid-template-columns:1fr 1fr; }
+.fg-row.c3 { grid-template-columns:1fr 1fr 1fr; }
+label.fl {
+  display:block; font-size:.68rem; font-weight:700;
+  letter-spacing:.07em; text-transform:uppercase;
+  color:var(--text3); margin-bottom:5px;
+}
+.fi, .fs, .ft {
+  width:100%; background:var(--bg3); border:1px solid var(--border);
+  border-radius:8px; padding:9px 12px;
+  font-size:.82rem; color:var(--text);
+  font-family:'Outfit',sans-serif;
+  transition:border-color var(--transition); outline:none;
+}
+.fi:focus, .fs:focus, .ft:focus { border-color:var(--amber); }
+.fs option { background:var(--bg3); }
+.ft { resize:vertical; min-height:76px; }
+.fi::placeholder { color:var(--text3); }
+
+/* ── TABS ── */
+.tabs {
+  display:flex; gap:2px;
+  background:var(--bg3); border-radius:10px;
+  padding:3px; width:fit-content; margin-bottom:20px;
+}
+.tab {
+  padding:7px 16px; border-radius:7px;
+  font-size:.8rem; font-weight:500; cursor:pointer;
+  color:var(--text3); border:none; background:none;
+  font-family:'Outfit',sans-serif; transition:all var(--transition);
+}
+.tab.active { background:var(--bg2); color:var(--text); box-shadow:0 1px 6px rgba(0,0,0,.3); }
+.tab:hover:not(.active) { color:var(--text2); }
+
+/* ── FILTERS ── */
+.filters-bar { display:flex; gap:9px; margin-bottom:18px; flex-wrap:wrap; align-items:center; }
+.search-wrap { position:relative; }
+.si { /* search input */
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:8px; padding:8px 12px 8px 32px;
+  font-size:.8rem; color:var(--text);
+  font-family:'Outfit',sans-serif; width:210px;
+  transition:border-color var(--transition); outline:none;
+}
+.si:focus { border-color:var(--amber); }
+.si::placeholder { color:var(--text3); }
+.si-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--text3); font-size:.8rem; pointer-events:none; }
+.filter-chip {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:8px; padding:8px 12px;
+  font-size:.78rem; color:var(--text2);
+  font-family:'Outfit',sans-serif; outline:none; cursor:pointer;
+  transition:border-color var(--transition);
+}
+.filter-chip:focus { border-color:var(--amber); }
+.filter-chip option { background:var(--bg3); }
+
+/* ── PROPERTY CARDS ── */
+.props-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:14px; }
+.prop-card {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:var(--radius); overflow:hidden;
+  transition:border-color var(--transition), transform var(--transition), box-shadow var(--transition);
+  cursor:pointer;
+}
+.prop-card:hover { border-color:var(--border2); transform:translateY(-3px); box-shadow:0 12px 36px rgba(0,0,0,.4); }
+.prop-card.selected-compare { border-color:var(--amber); box-shadow:0 0 0 2px var(--amber-glow); }
+.prop-img {
+  width:100%; height:150px; background:var(--bg3);
+  display:flex; align-items:center; justify-content:center;
+  font-size:2.5rem; position:relative; overflow:hidden;
+}
+.prop-img-overlay { position:absolute; inset:0; background:linear-gradient(transparent 50%, rgba(0,0,0,.5)); }
+.prop-img-badge { position:absolute; top:10px; right:10px; }
+.prop-compare-chk {
+  position:absolute; top:10px; left:10px;
+  width:22px; height:22px; border-radius:6px;
+  background:var(--bg2); border:1px solid var(--border2);
+  display:flex; align-items:center; justify-content:center;
+  font-size:.7rem; cursor:pointer;
+  transition:all var(--transition); opacity:0;
+}
+.prop-card:hover .prop-compare-chk { opacity:1; }
+.prop-compare-chk.checked { opacity:1; background:var(--amber); border-color:var(--amber); color:#000; }
+.prop-body { padding:14px; }
+.prop-title { font-weight:600; font-size:.88rem; color:var(--text); margin-bottom:3px; }
+.prop-addr { font-size:.73rem; color:var(--text3); margin-bottom:10px; }
+.prop-price {
+  font-family:'Playfair Display',serif;
+  font-size:1.1rem; font-weight:600; color:var(--amber2); margin-bottom:8px;
+}
+.prop-specs { display:flex; gap:12px; font-size:.7rem; color:var(--text3); }
+.prop-specs span { display:flex; align-items:center; gap:3px; }
+.prop-foot {
+  padding:10px 14px; border-top:1px solid var(--border);
+  display:flex; gap:7px;
+}
+
+/* ── CALENDAR ── */
+.cal-nav-row { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+.cal-nav-btn {
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:8px; padding:7px 12px;
+  cursor:pointer; color:var(--text2); font-size:.85rem;
+  transition:all var(--transition);
+}
+.cal-nav-btn:hover { border-color:var(--border2); color:var(--text); }
+.cal-month { font-family:'Playfair Display',serif; font-size:1.25rem; font-weight:600; }
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-top:10px; }
+.cal-day-hdr {
+  text-align:center; font-size:.62rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:.1em;
+  color:var(--text3); padding:4px;
+}
+.cal-cell {
+  border-radius:9px; background:var(--bg2); border:1px solid var(--border);
+  padding:6px; min-height:72px; cursor:pointer;
+  transition:all var(--transition); position:relative;
+}
+.cal-cell:hover { border-color:var(--border2); background:var(--bg3); }
+.cal-cell.today { border-color:var(--amber); }
+.cal-cell.empty { background:transparent; border-color:transparent; cursor:default; }
+.cal-num { font-size:.72rem; color:var(--text3); font-weight:600; margin-bottom:3px; }
+.cal-cell.today .cal-num { color:var(--amber2); font-weight:700; }
+.cal-evt {
+  font-size:.6rem; border-radius:4px;
+  padding:2px 5px; margin-bottom:2px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.cal-evt.blue { background:var(--blue-d); color:var(--blue); }
+.cal-evt.green { background:var(--green-d); color:var(--green); }
+.cal-evt.amber { background:var(--amber-dim); color:var(--amber2); }
+
+/* ── KANBAN ── */
+.kanban-board { display:flex; gap:14px; overflow-x:auto; padding-bottom:8px; }
+.kanban-col-add {
+  width:100%; padding:9px; background:none;
+  border:1px dashed var(--border2); border-radius:9px;
+  color:var(--text3); font-size:.75rem; cursor:pointer;
+  font-family:'Outfit',sans-serif; transition:all .2s; margin-top:6px;
+  display:flex; align-items:center; justify-content:center; gap:5px;
+}
+.kanban-col-add:hover { border-color:var(--amber); color:var(--amber2); background:var(--amber-dim); }
+.kanban-card-move {
+  display:flex; gap:4px; margin-top:8px; padding-top:8px;
+  border-top:1px solid var(--border); flex-wrap:wrap;
+}
+.kanban-card-move button {
+  flex:1; padding:5px 4px; border:1px solid var(--border2);
+  border-radius:6px; background:none; color:var(--text3);
+  font-size:.65rem; cursor:pointer; font-family:'Outfit',sans-serif;
+  transition:all .15s; white-space:nowrap;
+}
+.kanban-card-move button:hover { background:var(--bg3); color:var(--text); border-color:var(--amber); }
+.kanban-card-move button.mv-prev { color:var(--text3); }
+.kanban-card-move button.mv-next { background:var(--amber-dim); color:var(--amber2); border-color:var(--amber-glow); font-weight:600; }
+.kanban-card.dragging { opacity:.4; transform:scale(.97); }
+.kanban-col.drag-over .kanban-card:not(.dragging) { opacity:.7; }
+.kanban-col.drag-over-active { background:var(--amber-dim); border:1px dashed var(--amber); border-radius:12px; }
+.kanban-col {
+  min-width:240px; width:240px; flex-shrink:0;
+  background:var(--bg3); border-radius:12px; padding:12px;
+}
+.kanban-col-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:10px;
+}
+.kanban-col-title { font-size:.78rem; font-weight:700; }
+.kanban-count {
+  background:var(--bg4); color:var(--text3);
+  font-size:.68rem; font-weight:700;
+  padding:2px 7px; border-radius:10px;
+}
+.kanban-card {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:9px; padding:12px; margin-bottom:8px;
+  cursor:grab; transition:all var(--transition);
+}
+.kanban-card:hover { border-color:var(--border2); box-shadow:0 4px 14px rgba(0,0,0,.3); }
+.kanban-card-title { font-size:.8rem; font-weight:600; color:var(--text); margin-bottom:4px; }
+.kanban-card-sub { font-size:.72rem; color:var(--text3); }
+.kanban-card-footer { display:flex; align-items:center; justify-content:space-between; margin-top:8px; }
+.kanban-avatar { width:22px; height:22px; border-radius:50%; font-size:.6rem; font-weight:700; display:flex; align-items:center; justify-content:center; }
+
+/* ── CHAT ── */
+.chat-layout { display:flex; gap:0; height:520px; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+.chat-sidebar { width:220px; border-right:1px solid var(--border); overflow-y:auto; flex-shrink:0; }
+.chat-contact {
+  padding:12px 14px; cursor:pointer; border-bottom:1px solid var(--border);
+  transition:background var(--transition); display:flex; align-items:center; gap:10px;
+}
+.chat-contact:hover { background:var(--bg3); }
+.chat-contact.active { background:var(--amber-dim); }
+.chat-contact-info { flex:1; min-width:0; }
+.chat-contact-name { font-size:.8rem; font-weight:600; color:var(--text); }
+.chat-contact-preview { font-size:.7rem; color:var(--text3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.chat-unread { background:var(--amber); color:#000; font-size:.6rem; font-weight:700; width:17px; height:17px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.chat-main { flex:1; display:flex; flex-direction:column; }
+.chat-topbar { padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+.chat-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; }
+.chat-msg { max-width:70%; }
+.chat-msg.mine { align-self:flex-end; }
+.chat-msg.theirs { align-self:flex-start; }
+.chat-bubble {
+  padding:10px 14px; border-radius:14px;
+  font-size:.8rem; line-height:1.5;
+}
+.chat-msg.mine .chat-bubble { background:var(--amber); color:#000; border-bottom-right-radius:4px; }
+.chat-msg.theirs .chat-bubble { background:var(--bg3); color:var(--text); border-bottom-left-radius:4px; }
+.chat-time { font-size:.64rem; color:var(--text3); margin-top:3px; text-align:right; }
+.chat-msg.theirs .chat-time { text-align:left; }
+.chat-input-row { padding:12px 16px; border-top:1px solid var(--border); display:flex; gap:9px; }
+.chat-input {
+  flex:1; background:var(--bg3); border:1px solid var(--border);
+  border-radius:22px; padding:9px 16px;
+  font-size:.82rem; color:var(--text);
+  font-family:'Outfit',sans-serif; outline:none;
+  transition:border-color var(--transition);
+}
+.chat-input:focus { border-color:var(--amber); }
+.chat-send {
+  width:36px; height:36px; border-radius:50%;
+  background:var(--amber); border:none; cursor:pointer;
+  color:#000; font-size:1rem;
+  display:flex; align-items:center; justify-content:center;
+  transition:all var(--transition);
+}
+.chat-send:hover { background:var(--amber2); transform:scale(1.05); }
+
+/* ── RATING STARS ── */
+.stars { display:flex; gap:3px; }
+.star { font-size:1.2rem; cursor:pointer; color:var(--text3); transition:color var(--transition); }
+.star.lit { color:var(--amber); }
+.star-sm { font-size:.9rem; }
+
+/* ── MAP (fake) ── */
+.fake-map {
+  width:100%; height:400px; border-radius:var(--radius);
+  background:var(--bg3); position:relative; overflow:hidden;
+  border:1px solid var(--border);
+}
+.map-grid {
+  position:absolute; inset:0; opacity:.04;
+  background-image:linear-gradient(var(--text) 1px, transparent 1px),
+                   linear-gradient(90deg, var(--text) 1px, transparent 1px);
+  background-size:40px 40px;
+}
+.map-streets { position:absolute; inset:0; }
+.map-pin {
+  position:absolute; transform:translate(-50%,-100%);
+  cursor:pointer; transition:transform var(--transition);
+}
+.map-pin:hover { transform:translate(-50%,-100%) scale(1.2); }
+.map-pin-icon {
+  width:32px; height:32px; border-radius:50% 50% 50% 0;
+  transform:rotate(-45deg);
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 3px 10px rgba(0,0,0,.4);
+}
+.map-pin-emoji { transform:rotate(45deg); font-size:.9rem; }
+.map-tooltip {
+  position:absolute; bottom:calc(100% + 6px); left:50%;
+  transform:translateX(-50%);
+  background:var(--bg2); border:1px solid var(--border2);
+  border-radius:8px; padding:8px 12px; width:180px;
+  font-size:.75rem; display:none;
+  box-shadow:var(--shadow); z-index:10;
+}
+.map-pin:hover .map-tooltip { display:block; }
+.map-controls {
+  position:absolute; top:14px; right:14px;
+  display:flex; flex-direction:column; gap:4px;
+}
+.map-ctrl-btn {
+  width:32px; height:32px; border-radius:8px;
+  background:var(--bg2); border:1px solid var(--border);
+  color:var(--text2); cursor:pointer; font-size:.85rem;
+  display:flex; align-items:center; justify-content:center;
+  transition:all var(--transition);
+}
+.map-ctrl-btn:hover { background:var(--bg3); color:var(--text); }
+.map-legend {
+  position:absolute; bottom:14px; left:14px;
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:9px; padding:10px 12px; font-size:.72rem;
+}
+.map-legend-item { display:flex; align-items:center; gap:7px; margin-bottom:5px; }
+.map-legend-item:last-child { margin-bottom:0; }
+.map-legend-dot { width:10px; height:10px; border-radius:50%; }
+
+/* ── COMPARE ── */
+.compare-table { display:grid; gap:0; }
+.compare-header { display:flex; border-bottom:1px solid var(--border); }
+.compare-col-hdr {
+  flex:1; min-width:0; padding:16px;
+  text-align:center; border-right:1px solid var(--border);
+}
+.compare-col-hdr:last-child { border-right:none; }
+.compare-col-hdr.label-col { flex:0 0 140px; background:var(--bg3); }
+.compare-row { display:flex; border-bottom:1px solid var(--border); }
+.compare-row:last-child { border-bottom:none; }
+.compare-row:hover { background:var(--bg3); }
+.compare-cell {
+  flex:1; min-width:0; padding:11px 16px;
+  font-size:.82rem; color:var(--text2);
+  border-right:1px solid var(--border); text-align:center;
+}
+.compare-cell:last-child { border-right:none; }
+.compare-cell.label { flex:0 0 140px; color:var(--text3); font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; background:var(--bg3); text-align:left; }
+.compare-cell.best { color:var(--green); font-weight:600; }
+
+/* ── HISTORY TIMELINE ── */
+.hist-wrap { position:relative; padding-left:26px; }
+.hist-wrap::before { content:''; position:absolute; left:8px; top:4px; bottom:4px; width:1px; background:var(--border); }
+.hist-item { position:relative; margin-bottom:18px; }
+.hist-dot {
+  position:absolute; left:-26px; top:3px;
+  width:12px; height:12px; border-radius:50%;
+  border:2px solid var(--border2); background:var(--bg3);
+}
+.hist-dot.amber { border-color:var(--amber); background:var(--amber-dim); }
+.hist-dot.green { border-color:var(--green); background:var(--green-d); }
+.hist-dot.blue  { border-color:var(--blue);  background:var(--blue-d);  }
+.hist-dot.red   { border-color:var(--red);   background:var(--red-d);   }
+.hist-time { font-size:.68rem; color:var(--text3); margin-bottom:4px; }
+.hist-card { background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:10px 12px; }
+.hist-title { font-size:.82rem; font-weight:600; color:var(--text); margin-bottom:2px; }
+.hist-desc { font-size:.75rem; color:var(--text3); }
+
+/* ── WHATSAPP BANNER ── */
+.wa-banner {
+  background:linear-gradient(135deg,#128C7E, #25D366);
+  border-radius:10px; padding:12px 16px;
+  display:flex; align-items:center; gap:12px;
+  margin-bottom:10px;
+}
+.wa-banner-text { flex:1; }
+.wa-banner-title { font-size:.85rem; font-weight:700; color:#fff; }
+.wa-banner-sub { font-size:.75rem; color:rgba(255,255,255,.8); }
+.wa-btn {
+  background:#fff; color:#128C7E; font-weight:700;
+  font-size:.78rem; padding:7px 14px; border-radius:7px;
+  border:none; cursor:pointer; transition:all var(--transition);
+  font-family:'Outfit',sans-serif; white-space:nowrap;
+}
+.wa-btn:hover { background:#eee; }
+
+/* ── TOAST ── */
+.toast-container { position:fixed; bottom:24px; right:24px; z-index:999; display:flex; flex-direction:column; gap:8px; }
+.toast {
+  background:var(--bg2); border:1px solid var(--border2);
+  border-radius:10px; padding:12px 16px;
+  font-size:.8rem; color:var(--text);
+  display:flex; align-items:center; gap:10px;
+  box-shadow:var(--shadow); animation:toastIn .3s cubic-bezier(.34,1.3,.64,1) both;
+  max-width:320px;
+}
+@keyframes toastIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:none} }
+.toast.success { border-left:3px solid var(--green); }
+.toast.error   { border-left:3px solid var(--red); }
+.toast.info    { border-left:3px solid var(--amber); }
+.toast-icon { font-size:1rem; flex-shrink:0; }
+
+/* ── PROFILE PAGE ── */
+.profile-header {
+  background:linear-gradient(135deg, var(--bg2), var(--bg3));
+  border:1px solid var(--border); border-radius:var(--radius);
+  padding:28px; margin-bottom:18px;
+  display:flex; gap:20px; align-items:flex-start;
+}
+.profile-ava-big {
+  width:72px; height:72px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.4rem; font-weight:700; flex-shrink:0;
+  border:3px solid var(--border2);
+}
+.profile-meta h2 { font-family:'Playfair Display',serif; font-size:1.4rem; font-weight:700; margin-bottom:4px; }
+.profile-meta p { font-size:.8rem; color:var(--text3); }
+
+/* ── NOTIF PANEL ── */
+.notif-item {
+  display:flex; gap:12px; align-items:flex-start;
+  padding:12px; border-radius:9px;
+  cursor:pointer; transition:background var(--transition);
+  border-bottom:1px solid var(--border);
+}
+.notif-item:last-child { border-bottom:none; }
+.notif-item:hover { background:var(--bg3); }
+.notif-item.unread { background:var(--amber-dim); }
+.notif-unread-dot { width:7px; height:7px; border-radius:50%; background:var(--amber); flex-shrink:0; margin-top:5px; }
+.notif-read-dot { width:7px; height:7px; border-radius:50%; border:1px solid var(--border2); flex-shrink:0; margin-top:5px; }
+.notif-text { font-size:.8rem; color:var(--text); line-height:1.4; }
+.notif-time { font-size:.68rem; color:var(--text3); margin-top:3px; }
+
+/* ── SETTINGS ── */
+.settings-row { display:grid; grid-template-columns:240px 1fr; gap:24px; margin-bottom:24px; }
+.settings-label h3 { font-size:.9rem; font-weight:600; margin-bottom:4px; }
+.settings-label p { font-size:.75rem; color:var(--text3); line-height:1.5; }
+.logo-drop {
+  width:100px; height:100px; border:2px dashed var(--border2);
+  border-radius:12px; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:6px;
+  cursor:pointer; transition:all var(--transition);
+  font-size:.72rem; color:var(--text3); overflow:hidden; margin-bottom:10px;
+}
+.logo-drop:hover { border-color:var(--amber); color:var(--amber2); }
+.logo-drop img { width:100%; height:100%; object-fit:contain; border-radius:10px; }
+
+/* ── EXPORT BTN ── */
+.export-row { display:flex; gap:9px; margin-bottom:18px; }
+
+/* ══════════════════════════════════════════════
+   MOBILE / RESPONSIVE / PWA
+══════════════════════════════════════════════ */
+
+/* PWA install banner */
+.pwa-banner {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--bg2); border-top: 1px solid var(--border2);
+  padding: 14px 18px;
+  padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  display: flex; align-items: center; gap: 12px;
+  z-index: 600;
+  transform: translateY(110%);
+  transition: transform .3s ease;
+  box-shadow: 0 -4px 24px rgba(0,0,0,.5);
+  pointer-events: none;
+}
+.pwa-banner.show {
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.pwa-banner-icon {
+  width: 42px; height: 42px; border-radius: 11px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--amber), var(--amber2));
+  display: flex; align-items: center; justify-content: center; font-size: 1.25rem;
+}
+.pwa-banner-text { flex: 1; min-width: 0; }
+.pwa-banner-title { font-size: .84rem; font-weight: 700; color: var(--text); }
+.pwa-banner-sub   { font-size: .71rem; color: var(--text3); margin-top: 1px; }
+.pwa-banner-actions { display: flex; gap: 7px; flex-shrink: 0; align-items: center; }
+.pwa-dismiss {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--bg3); border: 1px solid var(--border2);
+  color: var(--text3); font-size: 1.1rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, transform .1s; flex-shrink: 0;
+  position: relative; z-index: 601;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.pwa-dismiss:active { background: var(--bg4); transform: scale(.88); }
+
+/* Notif permission prompt */
+.notif-prompt {
+  background: linear-gradient(135deg, var(--blue-d), transparent);
+  border: 1px solid var(--blue-d);
+  border-radius: 12px; padding: 14px 16px;
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 16px;
+}
+.notif-prompt-text { flex: 1; }
+.notif-prompt-title { font-size: .84rem; font-weight: 600; }
+.notif-prompt-sub { font-size: .72rem; color: var(--text3); margin-top: 2px; }
+
+/* Bottom navigation (mobile) */
+.bottom-nav {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--bg2); border-top: 1px solid var(--border);
+  padding: 8px 4px; padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  z-index: 50; grid-template-columns: repeat(5, 1fr);
+  box-shadow: 0 -4px 20px rgba(0,0,0,.3);
+}
+.bn-item {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 6px 4px; border-radius: 10px; cursor: pointer;
+  transition: all .2s; position: relative;
+  border: none; background: none; font-family: 'Outfit', sans-serif;
+}
+.bn-item:active { transform: scale(.93); }
+.bn-icon { font-size: 1.2rem; line-height: 1; }
+.bn-label { font-size: .58rem; font-weight: 600; color: var(--text3); letter-spacing: .02em; }
+.bn-item.active .bn-label { color: var(--amber); }
+.bn-item.active .bn-icon { filter: saturate(1.5); }
+.bn-badge {
+  position: absolute; top: 4px; right: 20%;
+  background: var(--amber); color: #000;
+  font-size: .52rem; font-weight: 800;
+  min-width: 15px; height: 15px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--bg2);
+}
+
+/* WhatsApp float button */
+.wa-float {
+  position: fixed; bottom: 88px; right: 20px;
+  width: 52px; height: 52px; border-radius: 50%;
+  background: #25D366; border: none; cursor: pointer;
+  display: none; align-items: center; justify-content: center;
+  font-size: 1.5rem; box-shadow: 0 4px 16px rgba(37,211,102,.4);
+  z-index: 49; transition: all .25s; color: #fff;
+}
+.wa-float:hover { transform: scale(1.08); box-shadow: 0 6px 24px rgba(37,211,102,.5); }
+.wa-float.show { display: flex; }
+
+/* Google Calendar sync badge */
+.gcal-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: #1a73e822; color: #4285f4;
+  border: 1px solid #1a73e833;
+  border-radius: 20px; padding: 3px 10px;
+  font-size: .7rem; font-weight: 600;
+}
+.gcal-badge.synced { background: #1a73e822; color: #4285f4; }
+.gcal-badge.syncing { animation: pulse 1.2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+/* Google Calendar panel */
+.gcal-panel {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden; margin-bottom: 18px;
+}
+.gcal-header {
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+  background: linear-gradient(135deg, #1a73e811, transparent);
+}
+.gcal-logo { font-size: 1.2rem; }
+.gcal-connected {
+  display: flex; align-items: center; gap: 8px;
+  font-size: .8rem; color: var(--green);
+}
+.gcal-event-list { padding: 0; }
+.gcal-event {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 18px; border-bottom: 1px solid var(--border);
+  transition: background .2s;
+}
+.gcal-event:last-child { border-bottom: none; }
+.gcal-event:hover { background: var(--bg3); }
+.gcal-event-color { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.gcal-event-info { flex: 1; min-width: 0; }
+.gcal-event-title { font-size: .82rem; font-weight: 600; color: var(--text); }
+.gcal-event-time { font-size: .72rem; color: var(--text3); margin-top: 1px; }
+.gcal-event-actions { display: flex; gap: 6px; }
+
+/* WhatsApp in visits/cards */
+.wa-action-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: #25D36618; color: #25D366;
+  border: 1px solid #25D36630; border-radius: 7px;
+  padding: 5px 10px; font-size: .75rem; font-weight: 600;
+  cursor: pointer; transition: all .2s;
+  font-family: 'Outfit', sans-serif;
+}
+.wa-action-btn:hover { background: #25D36628; transform: translateY(-1px); }
+
+/* Agenda Google sync status bar */
+.sync-bar {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 16px; margin-bottom: 16px;
+  font-size: .8rem;
+}
+.sync-bar-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; animation: blink 2s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* Mobile-first layout overrides */
+@media (max-width: 768px) {
+  html, body { overflow: hidden; }
+  .sidebar { display: none !important; }
+  .main { width: 100%; }
+
+  /* Topbar */
+  .topbar { padding: 0 14px; height: 56px; }
+  .sidebar-toggle { display: none; }
+  .page-heading h1 { font-size: 1.05rem; }
+  .page-heading p { display: none; }
+  #tb-action { display: none !important; }
+  .notif-btn, .theme-toggle { width: 40px; height: 40px; }
+
+  /* Content */
+  .content {
+    padding: 12px;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Bottom nav — bigger tap targets */
+  .bottom-nav { display: grid; }
+  .bn-item { min-height: 54px; }
+  .bn-icon { font-size: 1.35rem; }
+  .bn-label { font-size: .6rem; }
+
+  /* WA float */
+  .wa-float { display: flex; bottom: calc(74px + env(safe-area-inset-bottom) + 12px); }
+
+  /* Touch targets */
+  .icon-btn { width: 40px; height: 40px; border-radius: 10px; font-size: 1rem; }
+  .btn-sm   { padding: 8px 14px; font-size: .78rem; }
+  .btn-xs   { padding: 6px 10px; font-size: .73rem; }
+
+  /* Stats */
+  .stats-grid { grid-template-columns: 1fr 1fr; gap: 9px; }
+  .stat-card  { padding: 14px 12px; }
+
+  /* Property cards → horizontal list layout */
+  .props-grid { grid-template-columns: 1fr; gap: 10px; }
+  .prop-card  { display: grid; grid-template-columns: 88px 1fr; border-radius: 14px; }
+  .prop-img   { height: 100%; min-height: 88px; border-radius: 14px 0 0 14px; grid-row: 1 / 3; font-size: 2rem; }
+  .prop-img-overlay { border-radius: 14px 0 0 14px; }
+  .prop-img-badge   { top: 6px; right: unset; left: 6px; }
+  .prop-compare-chk { display: none; }
+  .prop-body  { padding: 10px 10px 4px; }
+  .prop-title { font-size: .84rem; }
+  .prop-addr  { font-size: .7rem; margin-bottom: 5px; }
+  .prop-price { font-size: .95rem; margin-bottom: 4px; }
+  .prop-specs { font-size: .66rem; gap: 8px; }
+  .prop-foot  { grid-column: 2; padding: 0 10px 10px; flex-wrap: wrap; gap: 5px; border-top: none; }
+  .prop-foot .btn      { flex: 1 1 100%; justify-content: center; }
+  .prop-foot .icon-btn { flex: 1; max-width: 44px; }
+
+  /* All form c2/c3 grids → single column */
+  .fg-row.c2, .fg-row.c3 { grid-template-columns: 1fr !important; }
+
+  /* Dashboard grids → single column */
+  #page-dashboard > div[style*="grid-template-columns"],
+  #page-dashboard-cliente > div[style*="grid-template-columns"],
+  #page-perfil > div[style*="grid-template-columns"] { display: block !important; }
+  #page-dashboard > div > *, #page-dashboard-cliente > div > *,
+  #page-perfil > div > * { margin-bottom: 12px; }
+
+  /* Modals → bottom sheet with drag handle */
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal { width: 100%; border-radius: 20px 20px 0 0; max-height: 92vh;
+           animation: sheetUp .28s cubic-bezier(.32,1,.23,1) both; }
+  @keyframes sheetUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
+  .modal-lg, .modal-xl { width: 100%; }
+  .modal-header { padding: 20px 18px 12px; position: relative; }
+  .modal-header::before { content: ''; position: absolute; top: 8px; left: 50%;
+    transform: translateX(-50%); width: 36px; height: 4px;
+    border-radius: 2px; background: var(--border2); }
+  .modal-body   { padding: 0 18px 16px; }
+  .modal-footer { padding: 12px 18px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+
+  /* Tables */
+  .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tbl-wrap table { min-width: 420px; font-size: .78rem; }
+  .tbl-wrap table th:not(:first-child):not(:nth-child(2)):not(:last-child),
+  .tbl-wrap table td:not(:first-child):not(:nth-child(2)):not(:last-child) { display: none; }
+  .td-actions { gap: 5px; }
+
+  /* Kanban snap-scroll */
+  .kanban-board { gap: 10px; scroll-snap-type: x mandatory; padding-bottom: 12px; }
+  .kanban-col   { min-width: 80vw; scroll-snap-align: start; }
+  /* Kanban stats: 2x2 grid on mobile */
+  #kanban-stats { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px; }
+  #kanban-stats > div { min-width: unset; }
+  /* Kanban filters stack */
+  #page-funil .filters-bar { flex-wrap: wrap; gap: 8px; }
+  #page-funil .filters-bar select { flex: 1 1 calc(50% - 4px); min-width: 120px; }
+  /* Card move buttons: full row */
+  .kanban-card-move { gap: 6px; }
+  .kanban-card-move button { padding: 7px 4px; font-size: .68rem; }
+
+  /* Chat */
+  .chat-layout { height: calc(100vh - 130px); flex-direction: column; }
+  .chat-sidebar { width: 100%; height: 72px; overflow-x: auto; overflow-y: hidden;
+                  display: flex; flex-direction: row; border-right: none;
+                  border-bottom: 1px solid var(--border); }
+  .chat-contact { min-width: 68px; max-width: 68px; flex-direction: column;
+                  align-items: center; justify-content: center; padding: 6px;
+                  border-bottom: none; border-right: 1px solid var(--border); text-align: center; }
+  .chat-contact-name { font-size: .58rem; }
+  .chat-contact-last { display: none; }
+  .chat-input { font-size: 16px; } /* prevent iOS zoom */
+
+  /* Calendar */
+  .cal-grid { gap: 2px; margin-top: 6px; }
+  .cal-cell { min-height: 44px; padding: 3px; border-radius: 6px; }
+  .cal-evt  { display: none; }
+  .cal-num  { font-size: .68rem; }
+
+  /* CRM */
+  #page-crm > div[style*="grid-template-columns"] { display: block !important; }
+  #page-crm > div > * { margin-bottom: 14px; }
+  .crm-card { flex-wrap: wrap; gap: 10px; padding: 14px; }
+  .crm-actions { width: 100%; justify-content: space-between;
+                 border-top: 1px solid var(--border); padding-top: 10px; }
+  .crm-actions .icon-btn { flex: 1; max-width: 60px; }
+
+  /* Settings */
+  .cfg-tabs { padding: 4px; overflow-x: auto; }
+  .cfg-tab  { padding: 8px 12px; font-size: .75rem; flex-shrink: 0; }
+  .settings-row { display: block !important; }
+  .settings-label { margin-bottom: 12px; }
+
+  /* Profile */
+  .pf-hero { padding: 18px 16px; gap: 14px; flex-wrap: wrap; }
+  .pf-hero-name { font-size: 1.1rem; }
+
+  /* Cliente */
+  .cl-shortcut-grid { grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 14px; }
+  .cl-hero { padding: 18px 16px; }
+  .cl-hero-greeting { font-size: 1.2rem; }
+  .cl-hero-sub { font-size: .8rem; }
+  .cl-hero-actions { flex-direction: column; gap: 8px; }
+  .cl-hero-actions .btn { width: 100%; justify-content: center; padding: 12px; font-size: .84rem; }
+  .cl-shortcut { padding: 14px 10px; }
+  .cl-shortcut-icon { font-size: 1.4rem; }
+  .cl-shortcut-label { font-size: .75rem; }
+  .cl-shortcut-desc { display: none; }
+  .cl-visit-card { padding: 12px 14px; gap: 10px; }
+  .cl-visit-date-block { min-width: 46px; }
+  .cl-visit-date-day { font-size: 1.2rem; }
+  .cl-visit-actions { flex-wrap: wrap; gap: 6px; margin-top: 8px; width: 100%; }
+  .cl-visit-actions .btn { flex: 1 1 auto; justify-content: center; font-size: .72rem; min-height: 38px; }
+  .cl-bottom-grid { grid-template-columns: 1fr; gap: 14px; }
+  .cl-mini-stats-grid { grid-template-columns: 1fr 1fr; }
+  .cl-section-title { font-size: .78rem; margin-bottom: 10px; }
+
+  /* Relatorios / Agenda / Map */
+  #page-relatorios > div[style*="grid"],
+  #page-agenda > div[style*="grid"] { display: block !important; }
+  #page-relatorios > div > *, #page-agenda > div > * { margin-bottom: 14px; }
+  .fake-map { height: 240px; }
+
+  /* PWA banner: float above bottom-nav */
+  .pwa-banner {
+    bottom: calc(58px + env(safe-area-inset-bottom));
+    left: 10px; right: 10px;
+    border-radius: 14px;
+    border: 1px solid var(--border2);
+  }
+}
+
+@media (max-width: 390px) {
+  .content    { padding: 10px; }
+  .stats-grid { gap: 7px; }
+  .stat-card  { padding: 11px 10px; }
+  .prop-card  { grid-template-columns: 78px 1fr; }
+  .prop-img   { min-height: 78px; }
+}
+
+/* ── CRM INTELIGENTE ── */
+.crm-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 14px; padding: 18px 20px;
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 10px; transition: all var(--transition);
+  cursor: pointer;
+}
+.crm-card:hover { border-color: var(--border2); transform: translateX(3px); }
+.crm-card.alert { border-color: rgba(224,85,85,.4); background: var(--red-d); }
+.crm-score-badge {
+  width: 44px; height: 44px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem; flex-shrink: 0;
+}
+.score-quente { background: rgba(224,85,85,.18); }
+.score-morno  { background: rgba(212,151,58,.18); }
+.score-frio   { background: rgba(91,158,240,.18); }
+.crm-client-info { flex: 1; min-width: 0; }
+.crm-client-name { font-size: .9rem; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+.crm-client-meta { font-size: .72rem; color: var(--text3); display: flex; gap: 10px; flex-wrap: wrap; }
+.crm-score-bar-wrap { width: 80px; flex-shrink: 0; }
+.crm-score-val { font-family: 'Playfair Display', serif; font-size: 1.2rem; font-weight: 700; text-align: center; }
+.crm-score-bar { height: 4px; border-radius: 2px; background: var(--bg4); margin-top: 4px; overflow: hidden; }
+.crm-score-fill { height: 100%; border-radius: 2px; transition: width .4s; }
+.crm-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.crm-alert-strip {
+  background: var(--red-d); border: 1px solid rgba(224,85,85,.25);
+  border-radius: 12px; padding: 14px 18px;
+  margin-bottom: 18px; display: flex; align-items: flex-start; gap: 12px;
+}
+.crm-alert-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 2px; }
+.crm-alert-list { flex: 1; }
+.crm-alert-title { font-size: .82rem; font-weight: 700; color: var(--red); margin-bottom: 6px; }
+.crm-alert-item { font-size: .78rem; color: var(--text2); margin-bottom: 3px; padding-left: 8px; border-left: 2px solid var(--red); }
+.crm-parado-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
+}
+.crm-parado-item:last-child { border-bottom: none; }
+.crm-jornada {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--bg4); border-radius: 6px; padding: 2px 8px;
+  font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+}
+
+/* ── TOUR VIRTUAL ── */
+#tour-rooms { background: var(--bg3); }
+.tour-room-btn {
+  padding: 12px 18px; border: none; background: none; cursor: pointer;
+  font-family: 'Outfit', sans-serif; font-size: .8rem; font-weight: 500;
+  color: var(--text3); border-bottom: 2px solid transparent;
+  transition: all .2s; white-space: nowrap; display: flex; align-items: center; gap: 6px;
+}
+.tour-room-btn.active { color: var(--amber); border-bottom-color: var(--amber); background: var(--amber-dim); }
+.tour-room-btn:hover { color: var(--text); background: var(--bg4); }
+#tour-viewer {
+  background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a12 100%);
+}
+.tour-wall {
+  position: absolute; inset: 0;
+  transition: transform .05s linear;
+  display: flex; align-items: center; justify-content: center;
+}
+.tour-hotspot {
+  position: absolute; width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(212,151,58,.85); border: 2px solid var(--amber2);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: .75rem; transition: all .2s; z-index: 2;
+  animation: hotspot-pulse 2s infinite;
+}
+.tour-hotspot:hover { transform: scale(1.2); background: var(--amber); }
+@keyframes hotspot-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(212,151,58,.4)} 50%{box-shadow:0 0 0 8px rgba(212,151,58,0)} }
+
+/* ── TIMELINE JORNADA ── */
+.journey-steps {
+  display: flex; flex-direction: column; gap: 0;
+  padding: 8px 0;
+}
+.journey-step {
+  display: flex; gap: 14px; position: relative;
+}
+.journey-step:not(:last-child)::before {
+  content: ''; position: absolute; left: 15px; top: 36px;
+  width: 2px; height: calc(100% - 4px);
+  background: var(--border2);
+}
+.journey-dot {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .9rem; margin-top: 4px; z-index: 1; border: 2px solid var(--border);
+}
+.journey-dot.done   { background: var(--green-d);  border-color: var(--green);  }
+.journey-dot.active { background: var(--amber-dim); border-color: var(--amber); animation: hotspot-pulse 2s infinite; }
+.journey-dot.todo   { background: var(--bg3); }
+.journey-content { flex: 1; padding-bottom: 20px; }
+.journey-label { font-size: .84rem; font-weight: 700; margin-bottom: 3px; }
+.journey-sublabel { font-size: .72rem; color: var(--text3); }
+.journey-date { font-size: .68rem; color: var(--text3); margin-top: 4px; }
+
+/* ── CALCULADORA ── */
+#calc-result canvas { max-height: 100px; }
+
+/* ── FAVORITOS ── */
+.prop-card .fav-active { color: #e05555 !important; }
+
+/* ── PERFIL MELHORADO ── */
+.pf-hero {
+  background: linear-gradient(135deg, var(--bg2) 0%, var(--bg3) 100%);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 24px 28px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.pf-hero::before {
+  content: '';
+  position: absolute; top: -60px; right: -60px;
+  width: 200px; height: 200px; border-radius: 50%;
+  background: radial-gradient(circle, var(--amber-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+.pf-hero-ava {
+  position: relative; flex-shrink: 0;
+}
+.pf-hero-ava img {
+  width: 72px; height: 72px; border-radius: 50%;
+  object-fit: cover; border: 3px solid var(--amber-glow);
+}
+.pf-hero-info { flex: 1; min-width: 0; }
+.pf-hero-name { font-family: 'Playfair Display', serif; font-size: 1.3rem; font-weight: 700; }
+.pf-hero-role { font-size: .78rem; color: var(--text3); margin-top: 2px; display: flex; gap: 8px; align-items: center; }
+.pf-hero-wa {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #25D36618; border: 1px solid #25D36630; border-radius: 20px;
+  padding: 4px 12px; font-size: .72rem; font-weight: 600; color: #25D366; cursor: pointer;
+  transition: all .2s;
+}
+.pf-hero-wa:hover { background: #25D36628; transform: translateY(-1px); }
+
+/* Toggle switch */
+.toggle-switch { display:flex; align-items:center; cursor:pointer; flex-shrink:0; }
+.toggle-switch input { display:none; }
+.toggle-track {
+  width: 42px; height: 24px; border-radius: 12px;
+  background: var(--bg4); border: 1px solid var(--border2);
+  position: relative; transition: background .25s;
+}
+.toggle-switch input:checked ~ .toggle-track { background: var(--green); border-color: var(--green); }
+.toggle-thumb {
+  position: absolute; top: 3px; left: 3px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; transition: left .25s;
+  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+}
+.toggle-switch input:checked ~ .toggle-track .toggle-thumb { left: 21px; }
+
+/* Access log */
+.access-log-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  font-size: .78rem;
+}
+.access-log-item:last-child { border-bottom: none; }
+.access-device { font-size: .72rem; color: var(--text3); }
+
+/* ── CONFIGURAÇÕES TABS ── */
+.cfg-tabs {
+  display: flex; gap: 4px; margin-bottom: 20px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 5px;
+  overflow-x: auto;
+}
+.cfg-tab {
+  padding: 9px 16px; border-radius: 8px; border: none;
+  background: none; cursor: pointer; white-space: nowrap;
+  font-family: 'Outfit', sans-serif; font-size: .8rem; font-weight: 500;
+  color: var(--text3); transition: all .2s; flex-shrink: 0;
+}
+.cfg-tab:hover { color: var(--text); background: var(--bg3); }
+.cfg-tab.active { background: var(--bg3); color: var(--text); font-weight: 600;
+  box-shadow: 0 1px 6px rgba(0,0,0,.2); }
+.cfg-panel { animation: fadeIn .2s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+
+
+
+/* ── CLIENTE DASHBOARD ── */
+.cl-hero {
+  background: linear-gradient(135deg, var(--bg2) 0%, var(--bg3) 100%);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 28px 32px;
+  margin-bottom: 22px;
+  position: relative;
+  overflow: hidden;
+}
+.cl-hero::before {
+  content: '';
+  position: absolute; top: -40px; right: -40px;
+  width: 200px; height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--amber-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+.cl-hero-greeting {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.55rem; font-weight: 700;
+  margin-bottom: 4px; line-height: 1.2;
+}
+.cl-hero-sub { font-size: .84rem; color: var(--text3); margin-bottom: 20px; }
+.cl-hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.cl-visit-list { display: flex; flex-direction: column; gap: 10px; }
+.cl-visit-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex; align-items: center; gap: 16px;
+  transition: border-color var(--transition), transform var(--transition);
+  cursor: default;
+}
+.cl-visit-card:hover { border-color: var(--border2); transform: translateX(3px); }
+.cl-visit-date-block {
+  min-width: 52px;
+  background: var(--amber-dim);
+  border-radius: 10px;
+  padding: 8px 6px;
+  text-align: center; flex-shrink: 0;
+}
+.cl-visit-date-day {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.4rem; font-weight: 700;
+  color: var(--amber2); line-height: 1;
+}
+.cl-visit-date-mon { font-size: .62rem; font-weight: 700; color: var(--amber); text-transform: uppercase; letter-spacing: .08em; }
+.cl-visit-info { flex: 1; min-width: 0; }
+.cl-visit-title { font-size: .9rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cl-visit-meta { font-size: .75rem; color: var(--text3); margin-top: 3px; display: flex; gap: 10px; flex-wrap: wrap; }
+.cl-visit-actions { display: flex; gap: 7px; flex-shrink: 0; }
+
+.cl-shortcut-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.cl-shortcut {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 16px;
+  cursor: pointer;
+  transition: all var(--transition);
+  display: flex; flex-direction: column; gap: 8px;
+  text-align: center; align-items: center;
+}
+.cl-shortcut:hover { border-color: var(--amber); background: var(--amber-dim); transform: translateY(-2px); }
+.cl-shortcut-icon { font-size: 1.6rem; }
+.cl-shortcut-label { font-size: .8rem; font-weight: 600; color: var(--text); }
+.cl-shortcut-desc { font-size: .7rem; color: var(--text3); line-height: 1.4; }
+
+.cl-corretor-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex; align-items: center; gap: 14px;
+}
+.cl-empty {
+  padding: 28px 20px;
+  text-align: center; color: var(--text3);
+  font-size: .85rem;
+}
+.cl-empty-icon { font-size: 2.2rem; margin-bottom: 8px; opacity: .4; }
+.cl-section-title {
+  font-size: .72rem; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--text3); margin-bottom: 10px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ LOGIN SCREEN ═══════════════ -->
+<div id="login-screen">
+  <div class="login-bg"></div>
+  <div class="login-grid-lines"></div>
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-icon" id="ll-icon">🏠</div>
+      <span class="login-logo-text" id="ll-name">ImóvelAgenda</span>
+    </div>
+    <div class="login-title">Bem-vindo de volta</div>
+    <div class="login-sub" id="login-sub-text">Entre com seu email e senha</div>
+
+    <!-- Email+senha (padrão) -->
+    <div id="login-email-wrap" style="margin-bottom:4px">
+      <div class="fg">
+        <label class="fl">Email</label>
+        <input class="fi" id="login-email" type="email" placeholder="seu@email.com"
+          autocomplete="email"
+          onkeydown="if(event.key==='Enter')document.getElementById('login-senha').focus()">
+      </div>
+      <div class="fg" style="margin-top:10px">
+        <label class="fl">Senha</label>
+        <div style="position:relative">
+          <input class="fi" id="login-senha" type="password" placeholder="••••••••"
+            autocomplete="current-password" style="padding-right:42px"
+            onkeydown="if(event.key==='Enter')doLogin()">
+          <button type="button" onclick="var i=document.getElementById('login-senha');i.type=i.type==='password'?'text':'password'"
+            style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:.85rem;padding:4px">👁</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Perfis demo (oculto por padrão) -->
+    <div id="login-profiles-wrap" style="display:none">
+      <div class="login-profiles" id="login-profiles"></div>
+    </div>
+
+    <div id="login-error" style="display:none;color:var(--red);font-size:.78rem;margin:8px 0;padding:8px 12px;background:var(--red-d);border-radius:8px;text-align:center"></div>
+
+    <button class="btn-login" onclick="doLogin()" style="margin-top:14px">
+      <span>Entrar</span><span>→</span>
+    </button>
+
+    <div style="text-align:center;margin-top:12px">
+      <button id="login-mode-btn" onclick="toggleLoginMode()"
+        style="background:none;border:none;color:var(--text3);font-size:.73rem;cursor:pointer;text-decoration:underline;padding:4px 8px">
+        🎭 Usar perfil de demonstração
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ APP SHELL ═══════════════ -->
+<div id="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark" id="sb-logo">🏠</div>
+      <span class="logo-wordmark" id="sb-name">ImóvelAgenda</span>
+    </div>
+    <nav class="sidebar-nav" id="sidebar-nav">
+      <!-- injected by JS -->
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="user-pill" onclick="navigate('perfil')">
+        <div class="user-ava" id="sb-avatar"></div>
+        <div class="user-details">
+          <div class="user-name-sm" id="sb-uname"></div>
+          <div class="user-role-sm" id="sb-urole"></div>
+        </div>
+      </div>
+      <button onclick="logout()" style="width:100%;display:flex;align-items:center;gap:8px;padding:7px 10px;margin-top:4px;background:none;border:none;border-radius:8px;cursor:pointer;color:var(--text3);font-size:.75rem;transition:all .15s;font-family:'Outfit',sans-serif" onmouseover="this.style.background='var(--red-d)';this.style.color='var(--red)'" onmouseout="this.style.background='none';this.style.color='var(--text3)'">
+        <span>🚪</span><span>Sair da plataforma</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+      <div class="page-heading">
+        <h1 id="ph-title">Dashboard</h1>
+        <p id="ph-sub"></p>
+      </div>
+      <div class="topbar-right">
+        <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn" title="Alternar tema">🌙</button>
+        <button class="notif-btn" onclick="navigate('notificacoes')">
+          🔔<span class="notif-dot-badge" id="notif-dot"></span>
+        </button>
+        <button class="btn btn-primary btn-sm" id="tb-action" onclick="handleTopAction()">+ Nova Visita</button>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content" id="content">
+
+      <!-- ── DASHBOARD ── -->
+      <div class="page" id="page-dashboard">
+        <div class="stats-grid" id="dash-stats"></div>
+        <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:18px">
+          <div class="card">
+            <div class="card-header">
+              <span>📈</span><span class="card-title">Visitas por Mês</span>
+            </div>
+            <div class="card-body"><canvas id="chart-visitas" height="180"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <span>🍩</span><span class="card-title">Status das Visitas</span>
+            </div>
+            <div class="card-body" style="display:flex;align-items:center;justify-content:center">
+              <canvas id="chart-donut" height="180" width="180"></canvas>
+            </div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="card">
+            <div class="card-header"><span>📅</span><span class="card-title">Próximas Visitas</span></div>
+            <div class="tbl-wrap"><table><thead><tr><th>Imóvel</th><th>Cliente</th><th>Data/Hora</th><th>Status</th></tr></thead><tbody id="dash-visits"></tbody></table></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span>⏱</span><span class="card-title">Atividade Recente</span></div>
+            <div class="card-body"><div class="hist-wrap" id="dash-hist"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── DASHBOARD CLIENTE ── -->
+      <div class="page" id="page-dashboard-cliente">
+
+        <!-- Hero greeting -->
+        <div class="cl-hero">
+          <div class="cl-hero-greeting" id="cl-greeting">Olá! 👋</div>
+          <div class="cl-hero-sub">Você tem <strong id="cl-hero-count" style="color:var(--amber2)">0 visitas</strong> agendadas nos próximos dias.</div>
+          <div class="cl-hero-actions">
+            <button class="btn btn-primary" onclick="populateAgendarSelects();openModal('m-agendar')">
+              📅 Agendar Nova Visita
+            </button>
+            <button class="btn btn-ghost" onclick="navigate('imoveis')">
+              🏢 Ver Imóveis Disponíveis
+            </button>
+            <button class="btn btn-ghost" onclick="openTimeline()">
+              🗺️ Minha Jornada
+            </button>
+          </div>
+        </div>
+
+        <!-- Shortcuts -->
+        <div class="cl-shortcut-grid">
+          <div class="cl-shortcut" onclick="navigate('visitas')">
+            <span class="cl-shortcut-icon">🗓️</span>
+            <span class="cl-shortcut-label">Minhas Visitas</span>
+            <span class="cl-shortcut-desc">Veja todas as suas visitas e status</span>
+          </div>
+          <div class="cl-shortcut" onclick="navigate('chat')">
+            <span class="cl-shortcut-icon">💬</span>
+            <span class="cl-shortcut-label">Falar com Corretor</span>
+            <span class="cl-shortcut-desc">Envie uma mensagem diretamente</span>
+          </div>
+          <div class="cl-shortcut" onclick="navigate('imoveis')">
+            <span class="cl-shortcut-icon">🔍</span>
+            <span class="cl-shortcut-label">Explorar Imóveis</span>
+            <span class="cl-shortcut-desc" id="cl-sc-imoveis-desc">Imóveis disponíveis</span>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:18px">
+
+          <!-- Próximas visitas -->
+          <div>
+            <div class="cl-section-title">
+              <span>📅 Próximas visitas agendadas</span>
+              <button class="btn btn-ghost btn-xs" onclick="navigate('visitas')">Ver todas →</button>
+            </div>
+            <div class="cl-visit-list" id="cl-visit-list"></div>
+          </div>
+
+          <!-- Coluna direita -->
+          <div style="display:flex;flex-direction:column;gap:14px">
+
+            <div>
+              <div class="cl-section-title">🏅 Seu corretor</div>
+              <div class="cl-corretor-card">
+                <div style="width:44px;height:44px;border-radius:50%;background:var(--amber-dim);color:var(--amber2);display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:700;flex-shrink:0" id="cl-cor-ava"></div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:600;font-size:.88rem" id="cl-cor-name"></div>
+                  <div style="font-size:.72rem;color:var(--text3)" id="cl-cor-info"></div>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="navigate('chat')" style="flex-shrink:0">💬 Mensagem</button>
+              </div>
+            </div>
+
+            <div id="cl-pending-aval-section" style="display:none">
+              <div class="cl-section-title">⭐ Avaliação pendente</div>
+              <div style="background:var(--amber-dim);border:1px solid rgba(212,151,58,.25);border-radius:12px;padding:14px 16px">
+                <div style="font-size:.82rem;font-weight:600;color:var(--text);margin-bottom:4px" id="cl-pending-aval-title"></div>
+                <div style="font-size:.74px;color:var(--text3);margin-bottom:12px">Conte como foi sua experiência</div>
+                <button class="btn btn-primary btn-sm" id="cl-pending-aval-btn">⭐ Avaliar agora</button>
+              </div>
+            </div>
+
+            <div>
+              <div class="cl-section-title">📊 Meu resumo</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="cl-mini-stats"></div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+            <!-- ── IMÓVEIS ── -->
+      <div class="page" id="page-imoveis">
+        <div class="filters-bar">
+          <div class="search-wrap"><span class="si-icon">🔍</span><input class="si" id="im-search" placeholder="Buscar imóvel..." oninput="renderImoveis()"></div>
+          <select class="filter-chip" id="im-f-tipo" onchange="renderImoveis()">
+            <option value="">Todos os tipos</option>
+            <option>Apartamento</option><option>Casa</option><option>Comercial</option><option>Terreno</option><option>Cobertura</option>
+          </select>
+          <select class="filter-chip" id="im-f-status" onchange="renderImoveis()">
+            <option value="">Todos os status</option>
+            <option value="disponivel">Disponível</option><option value="reservado">Reservado</option><option value="vendido">Vendido</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" id="compare-bar-btn" onclick="openComparar()" style="display:none">⚖️ Comparar (<span id="compare-count">0</span>)</button>
+          <button class="btn btn-ghost btn-sm" onclick="clearCompare()" id="compare-clear" style="display:none">✕ Limpar</button>
+        </div>
+        <div class="props-grid" id="props-grid"></div>
+      </div>
+
+      <!-- ── AGENDA ── -->
+      <div class="page" id="page-agenda">
+
+        <!-- Google Calendar sync bar -->
+        <div class="sync-bar" id="gcal-sync-bar">
+          <div class="sync-bar-dot"></div>
+          <span style="font-size:.8rem;color:var(--text2)">Google Agenda sincronizado</span>
+          <span class="gcal-badge synced" style="margin-left:4px">✓ <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="c5a6aaabb1a485a2a8a4aca9eba6aaa8">[email&#160;protected]</a></span>
+          <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="triggerGCalSync()">🔄 Sincronizar</button>
+          <button class="btn btn-ghost btn-sm" onclick="disconnectGCal()" style="color:var(--text3)">Desconectar</button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start">
+          <!-- Calendar -->
+          <div>
+            <div class="cal-nav-row">
+              <button class="cal-nav-btn" onclick="calNav(-1)">‹</button>
+              <div class="cal-month" id="cal-month-lbl"></div>
+              <button class="cal-nav-btn" onclick="calNav(1)">›</button>
+              <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+                <div class="tabs" style="margin-bottom:0">
+                  <button class="tab active" id="cal-tab-mes" onclick="setCalView('mes',this)">Mês</button>
+                  <button class="tab" id="cal-tab-semana" onclick="setCalView('semana',this)">Semana</button>
+                  <button class="tab" id="cal-tab-lista" onclick="setCalView('lista',this)">Lista</button>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="openModal('m-agendar')">+ Agendar</button>
+              </div>
+            </div>
+            <div class="cal-grid" id="cal-hdrs"></div>
+            <div id="cal-cells-wrap">
+              <div class="cal-grid" id="cal-cells"></div>
+            </div>
+          </div>
+
+          <!-- Google Calendar panel -->
+          <div>
+            <div class="gcal-panel">
+              <div class="gcal-header">
+                <span class="gcal-logo">📅</span>
+                <div style="flex:1">
+                  <div style="font-size:.85rem;font-weight:700">Google Agenda</div>
+                  <div class="gcal-connected"><span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block"></span> Conectado</div>
+                </div>
+                <button class="icon-btn" onclick="triggerGCalSync()" title="Sincronizar">🔄</button>
+              </div>
+              <div class="gcal-event-list" id="gcal-events"></div>
+            </div>
+
+            <!-- Upcoming this week -->
+            <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:10px">Esta semana</div>
+            <div id="gcal-week-list"></div>
+
+            <!-- Add to Google Calendar CTA -->
+            <div style="margin-top:14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px">
+              <div style="font-size:.8rem;font-weight:600;margin-bottom:6px">📲 Notificações automáticas</div>
+              <div style="font-size:.72rem;color:var(--text3);margin-bottom:10px">Lembrete 1h antes de cada visita no seu Google Agenda</div>
+              <div style="display:flex;gap:7px;flex-wrap:wrap">
+                <span style="background:#EA433520;color:#EA4335;border:1px solid #EA433530;border-radius:6px;padding:3px 9px;font-size:.7rem;font-weight:600">● Gmail</span>
+                <span style="background:#4285F420;color:#4285F4;border:1px solid #4285F430;border-radius:6px;padding:3px 9px;font-size:.7rem;font-weight:600">● Google Meet</span>
+                <span style="background:#0F966320;color:#0F9663;border:1px solid #0F966330;border-radius:6px;padding:3px 9px;font-size:.7rem;font-weight:600">● WhatsApp</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── VISITAS ── -->
+      <div class="page" id="page-visitas">
+        <div class="tabs" id="visitas-tabs">
+          <button class="tab active" onclick="setVisitaFilter('todas',this)">Todas</button>
+          <button class="tab" onclick="setVisitaFilter('agendado',this)">Agendadas</button>
+          <button class="tab" onclick="setVisitaFilter('confirmado',this)">Confirmadas</button>
+          <button class="tab" onclick="setVisitaFilter('realizado',this)">Realizadas</button>
+          <button class="tab" onclick="setVisitaFilter('cancelado',this)">Canceladas</button>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span>🚶</span><span class="card-title">Visitas</span>
+            <div class="card-actions">
+              <div class="search-wrap"><span class="si-icon">🔍</span><input class="si" style="width:170px" id="v-search" placeholder="Buscar..." oninput="renderVisitas()"></div>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table><thead><tr><th>Imóvel</th><th>Cliente</th><th>Corretor</th><th>Data</th><th>Hora</th><th>Tipo</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody id="visitas-tbody"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CLIENTES ── -->
+      <div class="page" id="page-clientes">
+        <div class="card">
+          <div class="card-header">
+            <span>👥</span><span class="card-title">Clientes</span>
+            <div class="card-actions">
+              <div class="search-wrap"><span class="si-icon">🔍</span><input class="si" style="width:160px" placeholder="Buscar..." oninput="renderClientes(this.value)"></div>
+              <button class="btn btn-primary btn-sm" onclick="openModal('m-add-cliente')">+ Novo Cliente</button>
+            </div>
+          </div>
+          <div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Interesse</th><th>Faixa</th><th>Visitas</th><th>Ações</th></tr></thead><tbody id="clientes-tbody"></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- ── CORRETORES ── -->
+      <div class="page" id="page-corretores">
+        <div class="card">
+          <div class="card-header">
+            <span>🏅</span><span class="card-title">Equipe</span>
+            <div class="card-actions"><button class="btn btn-primary btn-sm" onclick="openModal('m-add-corretor')">+ Novo Corretor</button></div>
+          </div>
+          <div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>CRECI</th><th>Gerente</th><th>Visitas/Mês</th><th>Conversão</th><th>Status</th><th>Ações</th></tr></thead><tbody id="corretores-tbody"></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- ── FUNIL / KANBAN ── -->
+      <div class="page" id="page-funil">
+        <!-- Stats bar -->
+        <div id="kanban-stats" style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap"></div>
+        <!-- Filters -->
+        <div class="filters-bar" style="margin-bottom:14px">
+          <div class="search-wrap">
+            <span class="si-icon">🔍</span>
+            <input class="si" id="kanban-search" placeholder="Buscar cliente ou imóvel..." oninput="renderKanban()">
+          </div>
+          <select class="filter-chip" id="funil-corretor" onchange="renderKanban()">
+            <option value="">Todos corretores</option>
+          </select>
+          <select class="filter-chip" id="funil-col-filter" onchange="renderKanban()">
+            <option value="">Todas etapas</option>
+          </select>
+        </div>
+        <div class="kanban-board" id="kanban-board"></div>
+      </div>
+
+      <!-- ── CHAT ── -->
+      <div class="page" id="page-chat">
+        <div class="chat-layout">
+          <div class="chat-sidebar" id="chat-contacts"></div>
+          <div class="chat-main">
+            <div class="chat-topbar" id="chat-topbar">
+              <div class="user-ava" id="chat-ava" style="width:34px;height:34px;font-size:.8rem"></div>
+              <div>
+                <div style="font-size:.85rem;font-weight:600" id="chat-name">Selecione um contato</div>
+                <div style="font-size:.7rem;color:var(--green)" id="chat-status"></div>
+              </div>
+            </div>
+            <div class="chat-messages" id="chat-messages"></div>
+            <div class="chat-input-row">
+              <input class="chat-input" id="chat-input" placeholder="Digite uma mensagem..." onkeydown="if(event.key==='Enter')sendMsg()">
+              <button class="chat-send" onclick="sendMsg()">➤</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── MAPA ── -->
+      <div class="page" id="page-mapa">
+        <div class="filters-bar">
+          <select class="filter-chip" id="map-f-tipo" onchange="renderMap()">
+            <option value="">Todos os tipos</option>
+            <option>Apartamento</option><option>Casa</option><option>Comercial</option><option>Terreno</option><option>Cobertura</option>
+          </select>
+          <select class="filter-chip" id="map-f-status" onchange="renderMap()">
+            <option value="">Todos</option>
+            <option value="disponivel">Disponível</option><option value="reservado">Reservado</option><option value="vendido">Vendido</option>
+          </select>
+        </div>
+        <div class="fake-map" id="fake-map">
+          <div class="map-grid"></div>
+          <svg class="map-streets" id="map-svg" viewBox="0 0 900 400" preserveAspectRatio="none">
+            <!-- streets drawn by JS -->
+          </svg>
+          <div id="map-pins"></div>
+          <div class="map-controls">
+            <button class="map-ctrl-btn">+</button>
+            <button class="map-ctrl-btn">−</button>
+            <button class="map-ctrl-btn">⊙</button>
+          </div>
+          <div class="map-legend">
+            <div class="map-legend-item"><div class="map-legend-dot" style="background:var(--green)"></div>Disponível</div>
+            <div class="map-legend-item"><div class="map-legend-dot" style="background:var(--amber)"></div>Reservado</div>
+            <div class="map-legend-item"><div class="map-legend-dot" style="background:var(--red)"></div>Vendido</div>
+          </div>
+        </div>
+        <div style="margin-top:16px" class="props-grid" id="map-list-props"></div>
+      </div>
+
+      <!-- ── RELATÓRIOS ── -->
+      <div class="page" id="page-relatorios">
+        <div class="export-row">
+          <button class="btn btn-ghost btn-sm" onclick="exportPDF()">📄 Exportar PDF</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportExcel()">📊 Exportar Excel</button>
+        </div>
+        <div class="stats-grid" id="rel-stats"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
+          <div class="card">
+            <div class="card-header"><span>📊</span><span class="card-title">Performance por Corretor</span></div>
+            <div class="card-body"><canvas id="chart-corretor-bar" height="200"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span>📆</span><span class="card-title">Conversão Mensal</span></div>
+            <div class="card-body"><canvas id="chart-conversao" height="200"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span>🏢</span><span class="card-title">Imóveis Mais Visitados</span></div>
+          <div class="tbl-wrap"><table><thead><tr><th>Imóvel</th><th>Tipo</th><th>Visitas</th><th>Leads</th><th>Avaliação</th><th>Status</th></tr></thead><tbody id="rel-imoveis"></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- ── AVALIAÇÕES ── -->
+      <div class="page" id="page-avaliacoes">
+        <div class="stats-grid" id="aval-stats"></div>
+        <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:16px">
+          <div class="card">
+            <div class="card-header"><span>⭐</span><span class="card-title">Avaliações Recentes</span></div>
+            <div id="aval-list" style="padding:0 14px 14px"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span>📊</span><span class="card-title">Distribuição de Notas</span></div>
+            <div class="card-body"><canvas id="chart-aval" height="200"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── NOTIFICAÇÕES ── -->
+      <div class="page" id="page-notificacoes">
+        <div class="card">
+          <div class="card-header">
+            <span>🔔</span><span class="card-title">Notificações</span>
+            <div class="card-actions"><button class="btn btn-ghost btn-sm" onclick="markAllRead()">Marcar todas como lidas</button></div>
+          </div>
+          <div id="notif-list" style="padding:8px"></div>
+        </div>
+      </div>
+
+      <!-- ── PERFIL ── -->
+      <div class="page" id="page-perfil">
+
+        <!-- Profile header -->
+        <div class="pf-hero" id="profile-header"></div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+          <!-- ── Dados pessoais ── -->
+          <div class="card">
+            <div class="card-header"><span>✏️</span><span class="card-title">Dados Pessoais</span></div>
+            <div class="card-body">
+
+              <!-- Avatar upload -->
+              <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(--border)">
+                <div style="position:relative">
+                  <div id="pf-avatar-preview" class="profile-ava-big" style="width:64px;height:64px;font-size:1.1rem;cursor:pointer" onclick="document.getElementById('pf-avatar-inp').click()" title="Clique para alterar foto"></div>
+                  <div style="position:absolute;bottom:-2px;right:-2px;width:22px;height:22px;border-radius:50%;background:var(--amber);display:flex;align-items:center;justify-content:center;font-size:.6rem;cursor:pointer;border:2px solid var(--bg2)" onclick="document.getElementById('pf-avatar-inp').click()">📷</div>
+                </div>
+                <input type="file" id="pf-avatar-inp" accept="image/*" style="display:none" onchange="handleAvatarUpload(event)">
+                <div>
+                  <div style="font-size:.82rem;font-weight:600" id="pf-avatar-name">Clique no avatar para alterar</div>
+                  <div style="font-size:.72rem;color:var(--text3);margin-top:2px">JPG, PNG ou GIF · máx 2MB</div>
+                  <button class="btn btn-ghost btn-xs" style="margin-top:6px" onclick="removeAvatar()">Remover foto</button>
+                </div>
+              </div>
+
+              <div class="fg"><label class="fl">Nome Completo *</label><input class="fi" id="pf-nome"></div>
+              <div class="fg"><label class="fl">Email *</label><input class="fi" type="email" id="pf-email"></div>
+
+              <!-- WhatsApp field with validation -->
+              <div class="fg">
+                <label class="fl">WhatsApp / Telefone</label>
+                <div style="display:flex;gap:8px;align-items:flex-start">
+                  <div style="position:relative;flex:1">
+                    <input class="fi" id="pf-tel" placeholder="(11) 99999-9999" oninput="validateWaPhone(this)" style="padding-right:36px">
+                    <span id="pf-tel-status" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:.85rem"></span>
+                  </div>
+                  <button id="pf-tel-test" class="btn btn-ghost btn-sm" onclick="testWaLink()" title="Testar link" style="flex-shrink:0;opacity:.4;pointer-events:none">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                    Testar
+                  </button>
+                </div>
+                <div style="font-size:.7rem;color:var(--text3);margin-top:4px">Este número será usado em todos os botões de WhatsApp da plataforma</div>
+              </div>
+
+              <div class="fg">
+                <label class="fl">Bio / Apresentação</label>
+                <textarea class="ft" id="pf-bio" placeholder="Conte sobre sua experiência, especialidade, região de atuação..." rows="3"></textarea>
+                <div style="text-align:right;font-size:.68rem;color:var(--text3)" id="pf-bio-count">0/200</div>
+              </div>
+
+              <button class="btn btn-primary" onclick="saveProfile()">💾 Salvar Alterações</button>
+            </div>
+          </div>
+
+          <!-- ── Segurança ── -->
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div class="card">
+              <div class="card-header"><span>🔒</span><span class="card-title">Alterar Senha</span></div>
+              <div class="card-body">
+                <div class="fg">
+                  <label class="fl">Senha Atual *</label>
+                  <div style="position:relative">
+                    <input class="fi" type="password" id="pf-senha-atual" placeholder="••••••••" style="padding-right:40px">
+                    <button onclick="togglePassVis('pf-senha-atual')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:.8rem">👁</button>
+                  </div>
+                </div>
+                <div class="fg">
+                  <label class="fl">Nova Senha *</label>
+                  <div style="position:relative">
+                    <input class="fi" type="password" id="pf-senha-nova" placeholder="••••••••" oninput="checkPassStrength(this.value)" style="padding-right:40px">
+                    <button onclick="togglePassVis('pf-senha-nova')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:.8rem">👁</button>
+                  </div>
+                  <!-- Strength bar -->
+                  <div style="margin-top:6px">
+                    <div style="height:4px;border-radius:2px;background:var(--bg4);overflow:hidden">
+                      <div id="pass-strength-bar" style="height:100%;border-radius:2px;width:0;transition:all .3s"></div>
+                    </div>
+                    <div id="pass-strength-label" style="font-size:.68rem;color:var(--text3);margin-top:3px"></div>
+                  </div>
+                </div>
+                <div class="fg">
+                  <label class="fl">Confirmar Nova Senha *</label>
+                  <div style="position:relative">
+                    <input class="fi" type="password" id="pf-senha-conf" placeholder="••••••••" oninput="checkPassMatch()" style="padding-right:40px">
+                    <button onclick="togglePassVis('pf-senha-conf')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:.8rem">👁</button>
+                  </div>
+                  <div id="pass-match-label" style="font-size:.68rem;margin-top:3px"></div>
+                </div>
+                <button class="btn btn-primary" onclick="savePassword()">🔒 Atualizar Senha</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header"><span>🛡️</span><span class="card-title">Autenticação 2FA</span></div>
+              <div class="card-body">
+                <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+                  <div style="font-size:2rem">📱</div>
+                  <div style="flex:1">
+                    <div style="font-size:.84rem;font-weight:600">Autenticação em dois fatores</div>
+                    <div style="font-size:.73rem;color:var(--text3);margin-top:2px">Adicione uma camada extra de segurança à sua conta</div>
+                  </div>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="pf-2fa" onchange="toggle2FA(this)">
+                    <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                  </label>
+                </div>
+                <div id="pf-2fa-setup" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px">
+                  <div style="font-size:.78rem;font-weight:600;margin-bottom:8px">Configure seu app autenticador</div>
+                  <div style="display:flex;gap:12px;align-items:center">
+                    <div id="pf-2fa-qr" style="width:80px;height:80px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:2rem">🔳</div>
+                    <div style="font-size:.72rem;color:var(--text3)">
+                      <div style="margin-bottom:6px">Escaneie com Google Authenticator ou Authy</div>
+                      <div style="font-family:monospace;background:var(--bg4);padding:4px 8px;border-radius:5px;letter-spacing:.1em;font-size:.78rem" id="pf-2fa-code">JBSWY3DPEHPK3PXP</div>
+                      <button class="btn btn-ghost btn-xs" style="margin-top:6px" onclick="confirm2FA()">✓ Confirmar ativação</button>
+                    </div>
+                  </div>
+                </div>
+                <div id="pf-2fa-active" style="display:none;background:var(--green-d);border:1px solid var(--green);border-radius:8px;padding:10px 14px;font-size:.78rem;color:var(--green)">
+                  ✅ 2FA ativado — sua conta está protegida
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header"><span>🕐</span><span class="card-title">Histórico de Acessos</span></div>
+              <div class="card-body" style="padding:0">
+                <div id="pf-access-log"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── USUÁRIOS ── -->
+      <div class="page" id="page-usuarios">
+        <div class="card">
+          <div class="card-header">
+            <span>🛡️</span><span class="card-title">Gerenciar Usuários</span>
+            <div class="card-actions"><button class="btn btn-primary btn-sm" onclick="openAddUsuario()">+ Novo Usuário</button></div>
+          </div>
+          <div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Email</th><th>Perfil</th><th>Criado em</th><th>Status</th><th>Ações</th></tr></thead><tbody id="usuarios-tbody"></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- ── CONFIGURAÇÕES ── -->
+      <div class="page" id="page-configuracoes">
+        <!-- Config tabs -->
+        <div class="cfg-tabs" id="cfg-tabs">
+          <button class="cfg-tab active" onclick="setCfgTab('empresa',this)">🏢 Imobiliária</button>
+          <button class="cfg-tab" onclick="setCfgTab('integracoes',this)">🔗 Integrações</button>
+          <button class="cfg-tab" onclick="setCfgTab('plano',this)">💳 Plano</button>
+          <button class="cfg-tab" onclick="setCfgTab('seguranca',this)">🛡️ Segurança</button>
+          <button class="cfg-tab" onclick="setCfgTab('agendamento',this)">📅 Agendamento</button>
+        </div>
+
+        <!-- ── TAB: EMPRESA ── -->
+        <div class="cfg-panel active" id="cfg-empresa">
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><span>🏢</span><span class="card-title">Identidade Visual</span></div>
+            <div class="card-body">
+              <div class="settings-row">
+                <div class="settings-label"><h3>Logo e Nome</h3><p>Personalize como sua empresa é exibida.</p></div>
+                <div>
+                  <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
+                    <div>
+                      <label class="fl">Logo</label>
+                      <div class="logo-drop" id="logo-drop" onclick="document.getElementById('logo-inp').click()">
+                        <span id="logo-drop-icon" style="font-size:2rem">🏠</span>
+                        <span id="logo-drop-txt" style="font-size:.7rem">Clique para enviar</span>
+                      </div>
+                      <input type="file" id="logo-inp" accept="image/*" style="display:none" onchange="handleLogoUpload(event)">
+                      <button class="btn btn-ghost btn-xs" onclick="removeLogo()">Remover</button>
+                    </div>
+                    <div style="flex:1;min-width:200px">
+                      <div class="fg"><label class="fl">Nome da Empresa</label><input class="fi" id="cfg-name" value="ImóvelAgenda"></div>
+                      <div class="fg"><label class="fl">Slogan</label><input class="fi" id="cfg-slogan" value="Seu imóvel dos sonhos"></div>
+                      <div class="fg">
+                        <label class="fl">Cor de Destaque</label>
+                        <div style="display:flex;gap:8px;align-items:center">
+                          <input type="color" id="cfg-color" value="#D4973A" style="width:40px;height:36px;border:1px solid var(--border);border-radius:7px;padding:2px;background:none;cursor:pointer" oninput="syncCfgColor(this.value)">
+                          <input class="fi" id="cfg-color-hex" value="#D4973A" style="font-family:monospace;max-width:120px" oninput="syncCfgColorHex(this.value)">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span>📋</span><span class="card-title">Dados Legais</span></div>
+            <div class="card-body">
+              <div class="settings-row">
+                <div class="settings-label"><h3>CNPJ e Endereço</h3><p>Dados utilizados em documentos e contratos gerados pela plataforma.</p></div>
+                <div>
+                  <div class="fg-row c2">
+                    <div class="fg"><label class="fl">CNPJ</label><input class="fi" id="cfg-cnpj" placeholder="00.000.000/0001-00" oninput="maskCNPJ(this)"></div>
+                    <div class="fg"><label class="fl">CRECI-J (Pessoa Jurídica)</label><input class="fi" id="cfg-creci" placeholder="000000-J"></div>
+                  </div>
+                  <div class="fg"><label class="fl">Endereço Completo</label><input class="fi" id="cfg-endereco" placeholder="Av. Paulista, 1000 – Bela Vista, São Paulo – SP"></div>
+                  <div class="fg-row c2">
+                    <div class="fg"><label class="fl">Telefone Comercial</label><input class="fi" id="cfg-tel-comercial" placeholder="(11) 3000-0000"></div>
+                    <div class="fg"><label class="fl">Email Comercial</label><input class="fi" type="email" id="cfg-email" placeholder="contato@suaimob.com.br"></div>
+                  </div>
+                  <button class="btn btn-primary" onclick="saveCfgEmpresa()">💾 Salvar Empresa</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── TAB: INTEGRAÇÕES ── -->
+        <div class="cfg-panel" id="cfg-integracoes" style="display:none">
+
+          <!-- WhatsApp Business -->
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header">
+              <span style="color:#25D366">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+              </span>
+              <span class="card-title">WhatsApp Business API</span>
+              <span class="badge" style="background:#25D36618;color:#25D366;margin-left:auto">Conectado</span>
+            </div>
+            <div class="card-body">
+              <div class="settings-row">
+                <div class="settings-label"><h3>Número de Negócios</h3><p>Número usado para envios automáticos de confirmações e lembretes.</p></div>
+                <div>
+                  <div class="fg-row c2">
+                    <div class="fg"><label class="fl">Número WhatsApp Business</label><input class="fi" id="cfg-wa-num" placeholder="+55 11 99999-9999" value="+55 11 98001-1111"></div>
+                    <div class="fg"><label class="fl">Nome exibido</label><input class="fi" id="cfg-wa-nome" value="ImóvelAgenda Pro"></div>
+                  </div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+                    <div style="display:flex;align-items:center;gap:6px;background:var(--green-d);border:1px solid var(--green);border-radius:8px;padding:6px 12px;font-size:.75rem">
+                      <span style="width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block"></span>
+                      API Conectada · Limite: 1.000 msg/mês
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;background:var(--amber-dim);border:1px solid var(--amber-glow);border-radius:8px;padding:6px 12px;font-size:.75rem">
+                      <span>📊</span> 237 enviadas este mês
+                    </div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem"><input type="checkbox" checked id="wa-auto-confirm"> Confirmação automática ao agendar</label>
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem"><input type="checkbox" checked id="wa-auto-remind"> Lembrete 24h antes da visita</label>
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem"><input type="checkbox" id="wa-auto-cancel"> Aviso automático de cancelamento</label>
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem"><input type="checkbox" checked id="wa-auto-aval"> Solicitação de avaliação pós-visita</label>
+                  </div>
+                  <button class="btn btn-primary" style="margin-top:14px" onclick="showToast('WhatsApp Business salvo ✓','success')">💾 Salvar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Google Agenda -->
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header">
+              <span>📅</span><span class="card-title">Google Agenda</span>
+              <span class="badge" style="background:#4285F418;color:#4285F4;margin-left:auto" id="gcal-cfg-status">Conectado</span>
+            </div>
+            <div class="card-body">
+              <div class="settings-row">
+                <div class="settings-label"><h3>Sincronização</h3><p>Visitas agendadas aparecem automaticamente no Google Agenda de cada corretor.</p></div>
+                <div>
+                  <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
+                    <div style="font-size:1.5rem">📅</div>
+                    <div style="flex:1">
+                      <div style="font-size:.84rem;font-weight:600"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="80e3efeef4e1c0e7ede1e9ecaee3efed">[email&#160;protected]</a></div>
+                      <div style="font-size:.72rem;color:var(--green);margin-top:2px">✓ Sincronizado · última sync: hoje 14:30</div>
+                    </div>
+                    <button class="btn btn-ghost btn-sm" onclick="disconnectGCal()">Desconectar</button>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:8px">
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem"><input type="checkbox" checked> Criar evento ao agendar visita</label>
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem"><input type="checkbox" checked> Adicionar lembrete 1h antes</label>
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem"><input type="checkbox"> Convidar cliente por email</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Portais imobiliários -->
+          <div class="card">
+            <div class="card-header"><span>🌐</span><span class="card-title">Portais Imobiliários</span></div>
+            <div class="card-body">
+              <div class="settings-row">
+                <div class="settings-label"><h3>Publicação automática</h3><p>Imóveis marcados como disponíveis são publicados automaticamente nos portais configurados.</p></div>
+                <div>
+                  ${[
+                    {name:'ZAP Imóveis', icon:'🟡', status:'conectado', msg:'1.240 leads/mês'},
+                    {name:'Viva Real',   icon:'🔵', status:'conectado', msg:'890 leads/mês'},
+                    {name:'OLX',         icon:'🟠', status:'desconectado', msg:''},
+                    {name:'Imovelweb',   icon:'🟣', status:'desconectado', msg:''},
+                  ].map(p=>`
+                    <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
+                      <span style="font-size:1.2rem">${p.icon}</span>
+                      <div style="flex:1">
+                        <div style="font-size:.84rem;font-weight:600">${p.name}</div>
+                        ${p.msg?`<div style="font-size:.7rem;color:var(--green)">${p.msg}</div>`:'<div style="font-size:.7rem;color:var(--text3)">Não conectado</div>'}
+                      </div>
+                      ${p.status==='conectado'
+                        ?`<span style="background:var(--green-d);color:var(--green);border:1px solid var(--green);border-radius:6px;padding:2px 10px;font-size:.7rem;font-weight:600">● Ativo</span>
+                          <button class="btn btn-ghost btn-xs" onclick="showToast('Desconectando ${p.name}...','info')">Desconectar</button>`
+                        :`<button class="btn btn-primary btn-sm" onclick="showToast('Redirecionando para ${p.name}...','info')">Conectar</button>`
+                      }
+                    </div>`).join('')}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── TAB: PLANO ── -->
+        <div class="cfg-panel" id="cfg-plano" style="display:none">
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><span>💳</span><span class="card-title">Plano Atual</span></div>
+            <div class="card-body">
+              <div style="display:flex;align-items:center;gap:20px;padding:20px;background:linear-gradient(135deg,var(--amber-dim),var(--bg3));border:1px solid var(--amber-glow);border-radius:14px;margin-bottom:20px">
+                <div style="font-size:2.5rem">🏆</div>
+                <div style="flex:1">
+                  <div style="font-size:1.1rem;font-weight:700;color:var(--amber2)">Plano Pro</div>
+                  <div style="font-size:.8rem;color:var(--text3);margin-top:2px">Renovação em 15/03/2026 · R$ 197/mês</div>
+                  <div style="font-size:.75rem;color:var(--text3);margin-top:4px">Faturado mensalmente · Cancele a qualquer momento</div>
+                </div>
+                <button class="btn btn-primary" onclick="showToast('Redirecionando para upgrade...','info')">⬆ Fazer Upgrade</button>
+              </div>
+
+              <!-- Usage meters -->
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px">
+                ${[
+                  {label:'Corretores', used:3, max:10, icon:'🏅'},
+                  {label:'Imóveis', used:6, max:50, icon:'🏢'},
+                  {label:'Visitas/mês', used:12, max:200, icon:'📅'},
+                ].map(m=>`
+                  <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                      <span style="font-size:.78rem;font-weight:600">${m.icon} ${m.label}</span>
+                      <span style="font-size:.75rem;color:var(--text3)">${m.used}/${m.max}</span>
+                    </div>
+                    <div style="height:6px;border-radius:3px;background:var(--bg4);overflow:hidden">
+                      <div style="height:100%;border-radius:3px;width:${Math.round(m.used/m.max*100)}%;background:${m.used/m.max>0.8?'var(--red)':m.used/m.max>0.6?'var(--amber)':'var(--green)'}"></div>
+                    </div>
+                  </div>`).join('')}
+              </div>
+
+              <!-- Plan comparison -->
+              <div style="font-size:.82rem;font-weight:700;margin-bottom:10px;color:var(--text2)">Compare os planos</div>
+              <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:.78rem">
+                  <thead>
+                    <tr>
+                      <th style="text-align:left;padding:8px;color:var(--text3)">Recurso</th>
+                      <th style="padding:8px;background:var(--amber-dim);color:var(--amber2);border-radius:6px 6px 0 0">Grátis</th>
+                      <th style="padding:8px;background:var(--amber-dim);color:var(--amber2);border-top:2px solid var(--amber)">Pro ✓</th>
+                      <th style="padding:8px;color:var(--text3)">Enterprise</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${[
+                      ['Corretores','1','10','Ilimitado'],
+                      ['Imóveis','5','50','Ilimitado'],
+                      ['Visitas/mês','20','200','Ilimitado'],
+                      ['WhatsApp automático','—','✅','✅'],
+                      ['Portais integrados','—','2','Todos'],
+                      ['Relatórios avançados','—','✅','✅'],
+                      ['CRM Inteligente','—','✅','✅'],
+                      ['API própria','—','—','✅'],
+                      ['Suporte prioritário','—','Email','24/7'],
+                    ].map(row=>`<tr style="border-bottom:1px solid var(--border)">
+                      <td style="padding:8px;font-weight:500">${row[0]}</td>
+                      <td style="padding:8px;text-align:center;color:var(--text3)">${row[1]}</td>
+                      <td style="padding:8px;text-align:center;background:var(--amber-dim);font-weight:600;color:var(--amber2)">${row[2]}</td>
+                      <td style="padding:8px;text-align:center;color:var(--text3)">${row[3]}</td>
+                    </tr>`).join('')}
+                  </tbody>
+                </table>
+              </div>
+              <div style="display:flex;gap:10px;margin-top:16px">
+                <button class="btn btn-ghost" style="flex:1" onclick="showToast('Abrindo faturamento...','info')">🧾 Ver Histórico de Faturas</button>
+                <button class="btn btn-primary" style="flex:1" onclick="showToast('Upgrade para Enterprise...','info')">⬆ Upgrade para Enterprise</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── TAB: SEGURANÇA ── -->
+        <div class="cfg-panel" id="cfg-seguranca" style="display:none">
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><span>🔑</span><span class="card-title">Acesso e Permissões</span></div>
+            <div class="card-body">
+              <div class="settings-row">
+                <div class="settings-label"><h3>Política de Senha</h3><p>Defina os requisitos mínimos de segurança para todos os usuários.</p></div>
+                <div>
+                  <div class="fg-row c2">
+                    <div class="fg"><label class="fl">Comprimento mínimo</label>
+                      <select class="fs">
+                        <option>6 caracteres</option><option selected>8 caracteres</option><option>12 caracteres</option>
+                      </select>
+                    </div>
+                    <div class="fg"><label class="fl">Expiração de senha</label>
+                      <select class="fs"><option selected>Nunca</option><option>30 dias</option><option>90 dias</option></select>
+                    </div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem"><input type="checkbox" checked> Exigir letras maiúsculas e minúsculas</label>
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem"><input type="checkbox"> Exigir caracteres especiais (!@#$)</label>
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem"><input type="checkbox" checked> Exigir números</label>
+                  </div>
+                  <button class="btn btn-primary" style="margin-top:12px" onclick="showToast('Política de senha salva ✓','success')">💾 Salvar Política</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><span>🛡️</span><span class="card-title">Autenticação em Dois Fatores (2FA)</span></div>
+            <div class="card-body">
+              <div class="settings-row">
+                <div class="settings-label"><h3>2FA da Organização</h3><p>Obrigue o uso de 2FA para todos os usuários ou por perfil.</p></div>
+                <div>
+                  <div style="display:flex;flex-direction:column;gap:10px">
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem">
+                      <input type="checkbox" id="cfg-2fa-admin"> Obrigatório para Administradores
+                    </label>
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem">
+                      <input type="checkbox"> Obrigatório para Gerentes
+                    </label>
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem">
+                      <input type="checkbox"> Obrigatório para Corretores
+                    </label>
+                  </div>
+                  <button class="btn btn-primary" style="margin-top:12px" onclick="showToast('Configurações 2FA salvas ✓','success')">💾 Salvar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><span>🕐</span><span class="card-title">Histórico de Acessos — Organização</span></div>
+            <div class="card-body" style="padding:0" id="cfg-access-org"></div>
+          </div>
+        </div>
+
+        <!-- ── TAB: AGENDAMENTO ── -->
+        <div class="cfg-panel" id="cfg-agendamento" style="display:none">
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><span>📅</span><span class="card-title">Regras de Agendamento</span></div>
+            <div class="card-body">
+              <div class="settings-row">
+                <div class="settings-label"><h3>Horários</h3><p>Defina os horários permitidos para agendamento.</p></div>
+                <div>
+                  <div class="fg-row c3">
+                    <div class="fg"><label class="fl">Início</label><input class="fi" type="time" value="08:00"></div>
+                    <div class="fg"><label class="fl">Fim</label><input class="fi" type="time" value="18:00"></div>
+                    <div class="fg"><label class="fl">Duração (min)</label><input class="fi" type="number" value="60"></div>
+                  </div>
+                  <div class="fg">
+                    <label class="fl">Antecedência Mínima</label>
+                    <select class="fs"><option>2 horas</option><option selected>24 horas</option><option>48 horas</option></select>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem"><input type="checkbox" checked> Permitir agendamento aos finais de semana</label>
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem"><input type="checkbox"> Exigir confirmação manual do corretor</label>
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem"><input type="checkbox" checked> Reagendamento automático permitido pelo cliente</label>
+                  </div>
+                  <button class="btn btn-primary" style="margin-top:12px" onclick="showToast('Regras salvas ✓','success')">💾 Salvar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span>💬</span><span class="card-title">Notificações Automáticas</span></div>
+            <div class="card-body">
+              <div class="settings-row">
+                <div class="settings-label"><h3>Gatilhos de Envio</h3><p>Configure quando mensagens são disparadas automaticamente.</p></div>
+                <div>
+                  <div style="display:flex;flex-direction:column;gap:10px">
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem"><input type="checkbox" checked> Confirmação de agendamento (WhatsApp + Email)</label>
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem"><input type="checkbox" checked> Lembrete 24h antes da visita (WhatsApp)</label>
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem"><input type="checkbox" checked> Reagendamento (Email)</label>
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem"><input type="checkbox"> Cancelamento (WhatsApp + Email)</label>
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.82rem"><input type="checkbox" checked> Solicitação de avaliação pós-visita (Email)</label>
+                  </div>
+                  <button class="btn btn-primary" style="margin-top:14px" onclick="showToast('Preferências salvas ✓','success')">💾 Salvar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CRM INTELIGENTE ── -->
+      <div class="page" id="page-crm">
+        <!-- Alerts strip -->
+        <div id="crm-alerts-strip"></div>
+        <!-- Filter tabs -->
+        <div class="tabs" style="margin-bottom:18px" id="crm-tabs">
+          <button class="tab active" onclick="setCrmFilter('todos',this)">Todos</button>
+          <button class="tab" onclick="setCrmFilter('quente',this)">🔥 Quentes</button>
+          <button class="tab" onclick="setCrmFilter('morno',this)">🌡 Mornos</button>
+          <button class="tab" onclick="setCrmFilter('frio',this)">🧊 Frios</button>
+          <button class="tab" onclick="setCrmFilter('followup',this)">⚠️ Follow-up</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start">
+          <!-- Client score cards -->
+          <div id="crm-cards"></div>
+          <!-- Right panel -->
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <!-- Imóveis parados -->
+            <div class="card">
+              <div class="card-header"><span>⏳</span><span class="card-title">Imóveis sem visita (+15 dias)</span></div>
+              <div id="crm-imoveis-parados" style="padding:0"></div>
+            </div>
+            <!-- Cancelamentos -->
+            <div class="card">
+              <div class="card-header"><span>📊</span><span class="card-title">Motivos de Cancelamento</span></div>
+              <div class="card-body" style="padding-bottom:4px">
+                <canvas id="chart-cancelamentos" height="160"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── FAVORITOS (cliente) ── -->
+      <div class="page" id="page-favoritos">
+        <div id="favoritos-empty" style="display:none;text-align:center;padding:60px 20px;color:var(--text3)">
+          <div style="font-size:3rem;margin-bottom:12px">❤️</div>
+          <div style="font-size:1.1rem;font-weight:600;margin-bottom:6px;color:var(--text)">Nenhum favorito ainda</div>
+          <div style="font-size:.85rem">Toque no ❤️ nos cards de imóveis para salvar seus favoritos</div>
+          <button class="btn btn-primary" style="margin-top:20px" onclick="navigate('imoveis')">🔍 Explorar Imóveis</button>
+        </div>
+        <div class="props-grid" id="favoritos-grid"></div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ── BOTTOM NAV (mobile) ── -->
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="bn-item active" id="bn-inicio" onclick="bnNavigate('inicio')">
+    <span class="bn-icon">🏠</span><span class="bn-label">Início</span>
+  </button>
+  <button class="bn-item" id="bn-imoveis" onclick="bnNavigate('imoveis')">
+    <span class="bn-icon">🏢</span><span class="bn-label">Imóveis</span>
+  </button>
+  <button class="bn-item" id="bn-visitas" onclick="bnNavigate('visitas')">
+    <span class="bn-icon">📅</span><span class="bn-label">Visitas</span>
+    <span class="bn-badge" id="bn-badge-visitas" style="display:none"></span>
+  </button>
+  <button class="bn-item" id="bn-chat" onclick="bnNavigate('chat')">
+    <span class="bn-icon">💬</span><span class="bn-label">Chat</span>
+    <span class="bn-badge" id="bn-badge-chat" style="display:none">2</span>
+  </button>
+  <button class="bn-item" id="bn-mais" onclick="openMobileMenu()">
+    <span class="bn-icon">⋯</span><span class="bn-label">Mais</span>
+  </button>
+</nav>
+
+<!-- ── MOBILE DRAWER ── -->
+<div class="modal-overlay" id="m-mobile-menu">
+  <div class="modal" style="border-radius:20px 20px 0 0;width:100%;max-height:70vh">
+    <div class="modal-header">
+      <span class="modal-title" style="font-size:1rem">Menu</span>
+      <button class="modal-close" onclick="closeModal('m-mobile-menu')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:12px" id="mobile-menu-items"></div>
+  </div>
+</div>
+
+<!-- ── PWA INSTALL BANNER ── -->
+<div class="pwa-banner" id="pwa-banner">
+  <div class="pwa-banner-icon" id="pwa-banner-icon">🏠</div>
+  <div class="pwa-banner-text">
+    <div class="pwa-banner-title">Instalar ImóvelAgenda</div>
+    <div class="pwa-banner-sub">Acesse rápido, funciona offline</div>
+  </div>
+  <div class="pwa-banner-actions">
+    <button class="btn btn-primary btn-sm" onclick="installPWA()">Instalar</button>
+    <button class="pwa-dismiss" onclick="event.stopPropagation();dismissPWA()">✕</button>
+  </div>
+</div>
+
+<!-- Mobile FAB -->
+<button class="mob-fab" id="mob-fab" onclick="handleMobFab()" style="display:none">
+  <span id="mob-fab-icon">＋</span>
+</button>
+
+<!-- ── WHATSAPP FLOAT ── -->
+<button class="wa-float show" id="wa-float" onclick="openWaFloat()" title="Abrir WhatsApp">
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+</button>
+
+<!-- ═══════════════ MODALS ═══════════════ -->
+
+<!-- Agendar Visita -->
+<div class="modal-overlay" id="m-agendar">
+  <div class="modal">
+    <div class="modal-header"><span>📅</span><span class="modal-title">Agendar Visita</span><button class="modal-close" onclick="closeModal('m-agendar')">✕</button></div>
+    <div class="modal-body">
+      <div class="fg-row c2">
+        <div class="fg"><label class="fl">Imóvel *</label><select class="fs" id="ag-imovel"><option value="">Selecione...</option></select></div>
+        <div class="fg"><label class="fl">Cliente *</label><select class="fs" id="ag-cliente"><option value="">Selecione...</option></select></div>
+      </div>
+      <div class="fg-row c2">
+        <div class="fg"><label class="fl">Corretor *</label><select class="fs" id="ag-corretor"><option value="">Selecione...</option></select></div>
+        <div class="fg"><label class="fl">Tipo</label><select class="fs" id="ag-tipo"><option>Presencial</option><option>Virtual</option></select></div>
+      </div>
+      <div class="fg-row c2">
+        <div class="fg"><label class="fl">Data *</label><input class="fi" type="date" id="ag-data"></div>
+        <div class="fg"><label class="fl">Horário *</label><input class="fi" type="time" id="ag-hora" value="10:00"></div>
+      </div>
+      <div class="fg"><label class="fl">Duração</label>
+        <select class="fs" id="ag-duracao"><option>30 min</option><option selected>60 min</option><option>90 min</option><option>120 min</option></select>
+      </div>
+      <div class="fg"><label class="fl">Observações</label><textarea class="ft" id="ag-obs" placeholder="Detalhes adicionais..."></textarea></div>
+      <div class="wa-banner" id="ag-wa-preview" style="display:none">
+        <span style="font-size:1.4rem">📲</span>
+        <div class="wa-banner-text">
+          <div class="wa-banner-title">Confirmação automática será enviada</div>
+          <div class="wa-banner-sub" id="ag-wa-text"></div>
+        </div>
+        <button class="wa-btn" onclick="showToast('Preview do WhatsApp enviado!','success')">Preview</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('m-agendar')">Cancelar</button>
+      <button class="btn btn-primary" onclick="agendarVisita()">✅ Agendar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reagendar -->
+<div class="modal-overlay" id="m-reagendar">
+  <div class="modal">
+    <div class="modal-header"><span>🔄</span><span class="modal-title">Reagendar Visita</span><button class="modal-close" onclick="closeModal('m-reagendar')">✕</button></div>
+    <div class="modal-body">
+      <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:.8rem;color:var(--text2)">
+        📌 Visita atual: <span id="reag-info" style="color:var(--text);font-weight:600"></span>
+      </div>
+      <div class="fg-row c2">
+        <div class="fg"><label class="fl">Nova Data *</label><input class="fi" type="date" id="reag-data"></div>
+        <div class="fg"><label class="fl">Novo Horário *</label><input class="fi" type="time" id="reag-hora"></div>
+      </div>
+      <div class="fg"><label class="fl">Motivo</label>
+        <select class="fs" id="reag-motivo"><option>Conflito de agenda</option><option>Solicitação do cliente</option><option>Imóvel indisponível</option><option>Emergência</option><option>Outro</option></select>
+      </div>
+      <div class="fg"><label class="fl">Observação</label><textarea class="ft" id="reag-obs" placeholder="Descreva o motivo..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('m-reagendar')">Cancelar</button>
+      <button class="btn btn-primary" onclick="reagendar()">🔄 Reagendar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detalhe Visita / Imóvel -->
+<div class="modal-overlay" id="m-detalhe">
+  <div class="modal">
+    <div class="modal-header"><span id="det-icon">🔎</span><span class="modal-title" id="det-title">Detalhes</span><button class="modal-close" onclick="closeModal('m-detalhe')">✕</button></div>
+    <div class="modal-body" id="det-body"></div>
+    <div class="modal-footer" id="det-footer"></div>
+  </div>
+</div>
+
+<!-- Avaliação Pós-Visita -->
+<div class="modal-overlay" id="m-avaliar">
+  <div class="modal">
+    <div class="modal-header"><span>⭐</span><span class="modal-title">Avaliar Visita</span><button class="modal-close" onclick="closeModal('m-avaliar')">✕</button></div>
+    <div class="modal-body">
+      <div style="text-align:center;margin-bottom:24px">
+        <div style="font-size:1rem;color:var(--text2);margin-bottom:16px">Como foi sua experiência na visita?</div>
+        <div style="font-size:.85rem;font-weight:600;margin-bottom:4px" id="aval-imovel-name"></div>
+        <div style="font-size:.78rem;color:var(--text3)" id="aval-corretor-name"></div>
+      </div>
+      <div style="margin-bottom:20px">
+        <label class="fl" style="text-align:center;display:block;margin-bottom:10px">Atendimento do Corretor</label>
+        <div class="stars" style="justify-content:center" id="stars-atend"></div>
+      </div>
+      <div style="margin-bottom:20px">
+        <label class="fl" style="text-align:center;display:block;margin-bottom:10px">Qualidade do Imóvel</label>
+        <div class="stars" style="justify-content:center" id="stars-imovel"></div>
+      </div>
+      <div class="fg"><label class="fl">Comentário</label><textarea class="ft" id="aval-comment" placeholder="Conte sua experiência..."></textarea></div>
+      <div class="fg">
+        <label class="fl">Interesse em prosseguir?</label>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button class="btn btn-ghost btn-sm" id="aval-int-alto" onclick="setInteresse('alto',this)">🔥 Alto interesse</button>
+          <button class="btn btn-ghost btn-sm" id="aval-int-medio" onclick="setInteresse('medio',this)">🤔 Médio</button>
+          <button class="btn btn-ghost btn-sm" id="aval-int-baixo" onclick="setInteresse('baixo',this)">👎 Não tenho interesse</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('m-avaliar')">Pular</button>
+      <button class="btn btn-primary" onclick="submitAval()">⭐ Enviar Avaliação</button>
+    </div>
+  </div>
+</div>
+
+<!-- Comparar Imóveis -->
+<div class="modal-overlay" id="m-comparar">
+  <div class="modal modal-xl">
+    <div class="modal-header"><span>⚖️</span><span class="modal-title">Comparar Imóveis</span><button class="modal-close" onclick="closeModal('m-comparar')">✕</button></div>
+    <div class="modal-body">
+      <div id="compare-content"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('m-comparar')">Fechar</button>
+      <button class="btn btn-primary" onclick="showToast('Comparação exportada!','success')">📄 Exportar PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- Histórico Imóvel/Cliente -->
+<div class="modal-overlay" id="m-historico">
+  <div class="modal modal-lg">
+    <div class="modal-header"><span>📋</span><span class="modal-title" id="hist-title">Histórico</span><button class="modal-close" onclick="closeModal('m-historico')">✕</button></div>
+    <div class="modal-body" id="hist-body"></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('m-historico')">Fechar</button></div>
+  </div>
+</div>
+
+<!-- Add Imóvel -->
+<div class="modal-overlay" id="m-add-imovel">
+  <div class="modal modal-lg">
+    <div class="modal-header"><span>🏢</span><span class="modal-title">Cadastrar Imóvel</span><button class="modal-close" onclick="closeModal('m-add-imovel')">✕</button></div>
+    <div class="modal-body">
+      <div class="fg-row c2">
+        <div class="fg"><label class="fl">Tipo *</label><select class="fs" id="im-tipo"><option>Apartamento</option><option>Casa</option><option>Comercial</option><option>Terreno</option><option>Cobertura</option></select></div>
+        <div class="fg"><label class="fl">Finalidade</label><select class="fs" id="im-fin"><option>Venda</option><option>Locação</option><option>Venda e Locação</option></select></div>
+      </div>
+      <div class="fg"><label class="fl">Título *</label><input class="fi" id="im-tit" placeholder="Ex: Apto 3 quartos Vila Madalena"></div>
+      <div class="fg"><label class="fl">Endereço *</label><input class="fi" id="im-end" placeholder="Rua, número, bairro, cidade"></div>
+      <div class="fg-row c3">
+        <div class="fg"><label class="fl">Preço (R$) *</label><input class="fi" id="im-preco" type="number"></div>
+        <div class="fg"><label class="fl">Área (m²)</label><input class="fi" id="im-area" type="number"></div>
+        <div class="fg"><label class="fl">Quartos</label><input class="fi" id="im-qtos" type="number"></div>
+      </div>
+      <div class="fg-row c3">
+        <div class="fg"><label class="fl">Banheiros</label><input class="fi" id="im-ban" type="number"></div>
+        <div class="fg"><label class="fl">Vagas</label><input class="fi" id="im-vag" type="number"></div>
+        <div class="fg"><label class="fl">Status</label><select class="fs" id="im-stat"><option value="disponivel">Disponível</option><option value="reservado">Reservado</option><option value="vendido">Vendido</option></select></div>
+      </div>
+      <div class="fg"><label class="fl">Corretor Responsável</label><select class="fs" id="im-corr"></select></div>
+      <div class="fg"><label class="fl">Descrição</label><textarea class="ft" id="im-desc"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('m-add-imovel')">Cancelar</button>
+      <button class="btn btn-primary" onclick="addImovel()">💾 Cadastrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Imóvel (gerente/admin only) -->
+<div class="modal-overlay" id="m-edit-imovel">
+  <div class="modal modal-lg">
+    <div class="modal-header"><span>✏️</span><span class="modal-title">Editar Imóvel</span><button class="modal-close" onclick="closeModal('m-edit-imovel')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-im-id">
+      <div class="fg-row c2">
+        <div class="fg"><label class="fl">Tipo *</label><select class="fs" id="edit-im-tipo"><option>Apartamento</option><option>Casa</option><option>Comercial</option><option>Terreno</option><option>Cobertura</option></select></div>
+        <div class="fg"><label class="fl">Finalidade</label><select class="fs" id="edit-im-fin"><option>Venda</option><option>Locação</option><option>Venda e Locação</option></select></div>
+      </div>
+      <div class="fg"><label class="fl">Título *</label><input class="fi" id="edit-im-tit"></div>
+      <div class="fg"><label class="fl">Endereço *</label><input class="fi" id="edit-im-end"></div>
+      <div class="fg-row c3">
+        <div class="fg"><label class="fl">Preço (R$) *</label><input class="fi" id="edit-im-preco" type="number"></div>
+        <div class="fg"><label class="fl">Área (m²)</label><input class="fi" id="edit-im-area" type="number"></div>
+        <div class="fg"><label class="fl">Quartos</label><input class="fi" id="edit-im-qtos" type="number"></div>
+      </div>
+      <div class="fg-row c3">
+        <div class="fg"><label class="fl">Banheiros</label><input class="fi" id="edit-im-ban" type="number"></div>
+        <div class="fg"><label class="fl">Vagas</label><input class="fi" id="edit-im-vag" type="number"></div>
+        <div class="fg"><label class="fl">Status</label><select class="fs" id="edit-im-stat"><option value="disponivel">Disponível</option><option value="reservado">Reservado</option><option value="vendido">Vendido</option></select></div>
+      </div>
+      <div class="fg"><label class="fl">Corretor Responsável</label><select class="fs" id="edit-im-corr"></select></div>
+      <div class="fg"><label class="fl">Descrição</label><textarea class="ft" id="edit-im-desc"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('m-edit-imovel')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEditImovel()">💾 Salvar Alterações</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tour Virtual 360° -->
+<div class="modal-overlay" id="m-tour">
+  <div class="modal modal-xl">
+    <div class="modal-header">
+      <span>🌐</span>
+      <span class="modal-title" id="tour-title">Tour Virtual</span>
+      <button class="modal-close" onclick="closeModal('m-tour')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0;overflow:hidden">
+      <!-- Room selector -->
+      <div style="display:flex;gap:0;border-bottom:1px solid var(--border);overflow-x:auto" id="tour-rooms"></div>
+      <!-- 360 viewer -->
+      <div id="tour-viewer" style="position:relative;height:400px;overflow:hidden;background:#0a0a12;cursor:grab;user-select:none">
+        <div id="tour-panorama" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:none"></div>
+        <!-- Hotspots -->
+        <div id="tour-hotspots"></div>
+        <!-- Drag hint -->
+        <div id="tour-hint" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;padding:6px 14px;border-radius:20px;font-size:.72rem;pointer-events:none;display:flex;align-items:center;gap:6px">
+          <span>↔</span> Arraste para explorar
+        </div>
+      </div>
+      <!-- Info bar -->
+      <div style="display:flex;align-items:center;gap:16px;padding:14px 20px;border-top:1px solid var(--border);background:var(--bg3)" id="tour-infobar">
+        <div style="flex:1">
+          <div style="font-size:.82rem;font-weight:600" id="tour-room-name"></div>
+          <div style="font-size:.72rem;color:var(--text3)" id="tour-room-desc"></div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="tourPrevRoom()">‹ Anterior</button>
+        <button class="btn btn-ghost btn-sm" onclick="tourNextRoom()">Próximo ›</button>
+        <button class="btn btn-primary btn-sm" onclick="tourAgendar()">📅 Agendar Visita Presencial</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Calculadora de Financiamento -->
+<div class="modal-overlay" id="m-calculadora">
+  <div class="modal">
+    <div class="modal-header"><span>🧮</span><span class="modal-title">Calculadora de Financiamento</span><button class="modal-close" onclick="closeModal('m-calculadora')">✕</button></div>
+    <div class="modal-body">
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+        <div style="font-size:.75rem;color:var(--text3);margin-bottom:4px">Imóvel selecionado</div>
+        <div style="font-size:.95rem;font-weight:700" id="calc-imovel-nome"></div>
+        <div style="font-size:.85rem;color:var(--amber2);font-weight:600" id="calc-imovel-preco"></div>
+      </div>
+      <div class="fg-row c2">
+        <div class="fg">
+          <label class="fl">Valor do Imóvel (R$)</label>
+          <input class="fi" id="calc-valor" type="number" oninput="calcFinanciamento()">
+        </div>
+        <div class="fg">
+          <label class="fl">Entrada (R$)</label>
+          <input class="fi" id="calc-entrada" type="number" oninput="calcFinanciamento()">
+        </div>
+      </div>
+      <div class="fg-row c2">
+        <div class="fg">
+          <label class="fl">Prazo (anos)</label>
+          <select class="fs" id="calc-prazo" onchange="calcFinanciamento()">
+            <option value="10">10 anos</option><option value="15">15 anos</option>
+            <option value="20" selected>20 anos</option><option value="25">25 anos</option><option value="30">30 anos</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label class="fl">Taxa de Juros (% a.a.)</label>
+          <select class="fs" id="calc-taxa" onchange="calcFinanciamento()">
+            <option value="10.5">10,5% (IPCA+)</option><option value="11.0" selected>11,0% (TR)</option>
+            <option value="11.5">11,5%</option><option value="12.0">12,0%</option>
+          </select>
+        </div>
+      </div>
+      <!-- Result -->
+      <div id="calc-result" style="background:var(--amber-dim);border:1px solid var(--amber-glow);border-radius:12px;padding:20px;margin-top:6px">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center;margin-bottom:16px">
+          <div><div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Parcela</div><div style="font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;color:var(--amber2)" id="calc-parcela">—</div></div>
+          <div><div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Total Pago</div><div style="font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;color:var(--text)" id="calc-total">—</div></div>
+          <div><div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Juros Totais</div><div style="font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;color:var(--red)" id="calc-juros">—</div></div>
+        </div>
+        <div style="height:6px;border-radius:3px;background:var(--bg4);overflow:hidden;margin-bottom:8px">
+          <div id="calc-bar-entrada" style="height:100%;background:var(--green);border-radius:3px;transition:.4s;display:inline-block"></div><div id="calc-bar-financ" style="height:100%;background:var(--amber);border-radius:3px;transition:.4s;display:inline-block"></div>
+        </div>
+        <div style="display:flex;gap:16px;font-size:.7rem;color:var(--text3)">
+          <span><span style="color:var(--green)">■</span> Entrada: <span id="calc-pct-entrada">—</span></span>
+          <span><span style="color:var(--amber)">■</span> Financiado: <span id="calc-pct-financ">—</span></span>
+        </div>
+      </div>
+      <p style="font-size:.68rem;color:var(--text3);margin-top:10px">* Simulação pelo sistema SAC. Valores aproximados. Consulte seu banco para condições definitivas.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('m-calculadora')">Fechar</button>
+      <button class="btn btn-primary" onclick="populateAgendarSelects();closeModal('m-calculadora');openModal('m-agendar')">📅 Agendar Visita</button>
+    </div>
+  </div>
+</div>
+
+<!-- Timeline de Jornada -->
+<div class="modal-overlay" id="m-timeline">
+  <div class="modal">
+    <div class="modal-header"><span>🗺️</span><span class="modal-title">Minha Jornada</span><button class="modal-close" onclick="closeModal('m-timeline')">✕</button></div>
+    <div class="modal-body" id="timeline-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('m-timeline')">Fechar</button>
+      <button class="btn btn-primary" onclick="populateAgendarSelects();closeModal('m-timeline');openModal('m-agendar')">📅 Agendar Próxima Visita</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Cliente -->
+<div class="modal-overlay" id="m-add-cliente">
+  <div class="modal">
+    <div class="modal-header"><span>👤</span><span class="modal-title">Novo Cliente</span><button class="modal-close" onclick="closeModal('m-add-cliente')">✕</button></div>
+    <div class="modal-body">
+      <div class="fg-row c2">
+        <div class="fg"><label class="fl">Nome *</label><input class="fi" id="cl-nome"></div>
+        <div class="fg"><label class="fl">CPF</label><input class="fi" id="cl-cpf" placeholder="000.000.000-00"></div>
+      </div>
+      <div class="fg-row c2">
+        <div class="fg"><label class="fl">Email *</label><input class="fi" id="cl-email" type="email"></div>
+        <div class="fg"><label class="fl">Telefone</label><input class="fi" id="cl-tel" placeholder="(11) 9xxxx-xxxx"></div>
+      </div>
+      <div class="fg-row c2">
+        <div class="fg"><label class="fl">Interesse</label><select class="fs" id="cl-int"><option>Compra</option><option>Locação</option><option>Compra e Locação</option></select></div>
+        <div class="fg"><label class="fl">Faixa de Preço</label><select class="fs" id="cl-faixa"><option>Até R$ 300k</option><option>R$ 300k–600k</option><option>R$ 600k–1M</option><option>Acima de R$ 1M</option></select></div>
+      </div>
+      <div class="fg"><label class="fl">Observações</label><textarea class="ft" id="cl-obs"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('m-add-cliente')">Cancelar</button>
+      <button class="btn btn-primary" onclick="addCliente()">💾 Cadastrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Corretor -->
+<div class="modal-overlay" id="m-add-corretor">
+  <div class="modal">
+    <div class="modal-header"><span>🏅</span><span class="modal-title">Novo Corretor</span><button class="modal-close" onclick="closeModal('m-add-corretor')">✕</button></div>
+    <div class="modal-body">
+      <div class="fg-row c2">
+        <div class="fg"><label class="fl">Nome *</label><input class="fi" id="cor-nome"></div>
+        <div class="fg"><label class="fl">CRECI *</label><input class="fi" id="cor-creci"></div>
+      </div>
+      <div class="fg-row c2">
+        <div class="fg"><label class="fl">Email *</label><input class="fi" id="cor-email" type="email"></div>
+        <div class="fg"><label class="fl">Telefone</label><input class="fi" id="cor-tel"></div>
+      </div>
+      <div class="fg-row c2">
+        <div class="fg"><label class="fl">Gerente</label><select class="fs" id="cor-ger"><option value="">Sem gerente</option><option>Ana Ferreira</option><option>Carlos Lima</option></select></div>
+        <div class="fg"><label class="fl">Comissão (%)</label><input class="fi" id="cor-com" type="number" value="1.5" step="0.1"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('m-add-corretor')">Cancelar</button>
+      <button class="btn btn-primary" onclick="addCorretor()">💾 Cadastrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mover Corretor (admin only) -->
+<div class="modal-overlay" id="m-move-corretor">
+  <div class="modal">
+    <div class="modal-header"><span>↔</span><span class="modal-title">Mover Corretor de Gerente</span><button class="modal-close" onclick="closeModal('m-move-corretor')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="move-corr-id">
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px">
+        <div style="font-size:.75rem;color:var(--text3);margin-bottom:3px">Corretor</div>
+        <div style="font-size:.9rem;font-weight:700" id="move-corr-nome"></div>
+        <div style="font-size:.75rem;color:var(--text3);margin-top:3px">Gerente atual: <span id="move-corr-gerente-atual" style="color:var(--amber2)"></span></div>
+      </div>
+      <div class="fg">
+        <label class="fl">Novo Gerente *</label>
+        <select class="fs" id="move-corr-gerente-novo"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('m-move-corretor')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveMoveCorretor()">↔ Confirmar Mudança</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Usuário -->
+<div class="modal-overlay" id="m-add-usuario">
+  <div class="modal">
+    <div class="modal-header"><span>🛡️</span><span class="modal-title">Novo Usuário</span><button class="modal-close" onclick="closeModal('m-add-usuario')">✕</button></div>
+    <div class="modal-body">
+      <div style="background:var(--amber-dim);border:1px solid var(--amber-glow);border-radius:8px;padding:9px 12px;font-size:.76rem;margin-bottom:14px;display:flex;gap:8px;align-items:center">
+        <span>🔑</span><span id="us-permission-text">Selecione o perfil</span>
+      </div>
+      <div class="fg-row c2">
+        <div class="fg"><label class="fl">Nome completo *</label><input class="fi" id="us-nome" placeholder="Nome do usuário"></div>
+        <div class="fg"><label class="fl">Email *</label><input class="fi" id="us-email" type="email" placeholder="email@exemplo.com"></div>
+      </div>
+      <div class="fg-row c2">
+        <div class="fg"><label class="fl">Perfil *</label><select class="fs" id="us-role" onchange="onUsRoleChange()"></select></div>
+        <div class="fg"><label class="fl">Senha temporária</label><input class="fi" id="us-senha" type="text" placeholder="Ex: Trocar@2025"></div>
+      </div>
+      <div class="fg" id="us-creci-row" style="display:none">
+        <label class="fl">CRECI</label><input class="fi" id="us-creci" placeholder="000000-F">
+      </div>
+      <div class="fg" id="us-gerente-row" style="display:none">
+        <label class="fl">Gerente responsável</label><select class="fs" id="us-gerente-sel"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('m-add-usuario')">Cancelar</button>
+      <button class="btn btn-primary" onclick="addUsuario()">✅ Cadastrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+/* ═══════════════════════════════════════════════════════════════
+   DATA
+═══════════════════════════════════════════════════════════════ */
+const DB = {
+  company: { name:'ImóvelAgenda', slogan:'Seu imóvel dos sonhos', logo:'', color:'#D4973A' },
+
+  users: [
+    { id:1, nome:'Administrador',   email:'admin@imob.com',    role:'admin',    senha:'admin123', ativo:true, criado:'2025-01-01', tel:'', bio:'', orgId:'org1' },
+    { id:2, nome:'Ana Ferreira',   email:'ana@imob.com',      role:'gerente',  senha:'gerente',  ativo:true, criado:'2025-02-01', tel:'(11) 98001-1111', bio:'Gerente sênior com 10 anos de mercado.' },
+    { id:3, nome:'Ricardo Costa',  email:'ricardo@imob.com',  role:'corretor', senha:'corretor', ativo:true, criado:'2025-03-01', tel:'(11) 97002-2222', bio:'Especialista em imóveis residenciais.' },
+    { id:4, nome:'Juliana Pires',  email:'juliana@imob.com',  role:'corretor', senha:'corretor', ativo:true, criado:'2025-03-15', tel:'(11) 96003-3333', bio:'' },
+    { id:5, nome:'Carlos Lima',    email:'carlos@imob.com',   role:'gerente',  senha:'gerente2', ativo:true, criado:'2025-02-15', tel:'(11) 93006-0003', bio:'Gerente da equipe Alphaville.' },
+    { id:6, nome:'Fernando Alves', email:'fernando@email.com',role:'cliente',  senha:'cliente',  ativo:true, criado:'2025-06-01', tel:'(11) 95004-4444', bio:'' },
+    { id:8, nome:'Beatriz Santos', email:'beatriz@email.com', role:'cliente',  senha:'cliente',  ativo:true, criado:'2025-07-01', tel:'(11) 94005-5555', bio:'' },
+  ],
+
+  imoveis: [
+    { id:1, titulo:'Apto 3Q – Vila Madalena', tipo:'Apartamento', endereco:'R. Fradique Coutinho, 80', bairro:'Vila Madalena', preco:850000,  area:92,  quartos:3, banheiros:2, vagas:2, status:'disponivel', finalidade:'Venda',   corrResp:'Ricardo Costa', desc:'Apartamento moderno com varanda gourmet.', visitas:12, lat:42, lng:38 },
+    { id:2, titulo:'Casa 4Q – Moema',         tipo:'Casa',         endereco:'Av. Ibirapuera, 320',      bairro:'Moema',         preco:1800000, area:250, quartos:4, banheiros:4, vagas:3, status:'disponivel', finalidade:'Venda',   corrResp:'Juliana Pires', desc:'Casa ampla com piscina e jardim.',        visitas:8,  lat:55, lng:55 },
+    { id:3, titulo:'Sala Comercial – Paulista',tipo:'Comercial',   endereco:'Av. Paulista, 1000',       bairro:'Bela Vista',    preco:6500,   area:60,  quartos:0, banheiros:1, vagas:1, status:'reservado',  finalidade:'Locação', corrResp:'Ricardo Costa', desc:'Sala corporativa com vista panorâmica.',  visitas:5,  lat:30, lng:62 },
+    { id:4, titulo:'Cobertura Duplex – Perdizes',tipo:'Cobertura', endereco:'R. Turiassu, 45',          bairro:'Perdizes',      preco:2400000, area:320, quartos:5, banheiros:5, vagas:4, status:'disponivel', finalidade:'Venda',   corrResp:'Ricardo Costa', desc:'Cobertura exclusiva com rooftop.',         visitas:20, lat:20, lng:45 },
+    { id:5, titulo:'Terreno 500m² – Alphaville',tipo:'Terreno',   endereco:'Alameda Araguaia, 200',    bairro:'Alphaville',    preco:680000,  area:500, quartos:0, banheiros:0, vagas:0, status:'disponivel', finalidade:'Venda',   corrResp:'Juliana Pires', desc:'Terreno plano em condomínio fechado.',   visitas:3,  lat:70, lng:25 },
+    { id:6, titulo:'Apto 2Q – Pinheiros',      tipo:'Apartamento', endereco:'R. dos Pinheiros, 300',   bairro:'Pinheiros',     preco:620000,  area:68,  quartos:2, banheiros:1, vagas:1, status:'vendido',    finalidade:'Venda',   corrResp:'Juliana Pires', desc:'Apto reformado, pronto pra morar.',       visitas:15, lat:60, lng:72 },
+  ],
+
+  visitas: [
+    { id:1,  imovelId:1, imovel:'Apto 3Q – Vila Madalena',      cliente:'Fernando Alves', corretor:'Ricardo Costa', data:'2026-02-20', hora:'10:00', status:'agendado',   tipo:'Presencial', obs:'',                     avaliado:false },
+    { id:2,  imovelId:2, imovel:'Casa 4Q – Moema',               cliente:'Beatriz Santos', corretor:'Juliana Pires', data:'2026-02-20', hora:'14:00', status:'confirmado', tipo:'Presencial', obs:'',                     avaliado:false },
+    { id:3,  imovelId:4, imovel:'Cobertura Duplex – Perdizes',   cliente:'André Lima',     corretor:'Ricardo Costa', data:'2026-02-22', hora:'11:00', status:'agendado',   tipo:'Virtual',    obs:'',                     avaliado:false },
+    { id:4,  imovelId:1, imovel:'Apto 3Q – Vila Madalena',       cliente:'Camila Torres',  corretor:'Ricardo Costa', data:'2026-02-10', hora:'09:00', status:'realizado',  tipo:'Presencial', obs:'',                     avaliado:true  },
+    { id:5,  imovelId:3, imovel:'Sala Comercial – Paulista',      cliente:'Pedro Gomes',    corretor:'Ricardo Costa', data:'2026-02-05', hora:'15:00', status:'cancelado',  tipo:'Presencial', obs:'Preço acima do orçamento', motivo:'preco',   avaliado:false },
+    { id:6,  imovelId:5, imovel:'Terreno 500m² – Alphaville',    cliente:'Rodrigo Mota',   corretor:'Juliana Pires', data:'2026-02-25', hora:'10:30', status:'agendado',   tipo:'Presencial', obs:'',                     avaliado:false },
+    { id:7,  imovelId:2, imovel:'Casa 4Q – Moema',               cliente:'Sandra Lima',    corretor:'Juliana Pires', data:'2026-01-15', hora:'10:00', status:'realizado',  tipo:'Presencial', obs:'',                     avaliado:true  },
+    { id:8,  imovelId:4, imovel:'Cobertura Duplex – Perdizes',   cliente:'Bruno Mendes',   corretor:'Ricardo Costa', data:'2026-01-22', hora:'14:00', status:'realizado',  tipo:'Presencial', obs:'',                            avaliado:false },
+    { id:9,  imovelId:2, imovel:'Casa 4Q – Moema',               cliente:'André Lima',     corretor:'Juliana Pires', data:'2026-01-10', hora:'11:00', status:'cancelado',  tipo:'Presencial', obs:'Agenda do cliente conflitou',  motivo:'agenda',  avaliado:false },
+    { id:10, imovelId:5, imovel:'Terreno 500m² – Alphaville',    cliente:'Pedro Gomes',    corretor:'Juliana Pires', data:'2026-01-05', hora:'10:00', status:'cancelado',  tipo:'Presencial', obs:'Imóvel não atendeu expectativas', motivo:'imovel', avaliado:false },
+    { id:11, imovelId:1, imovel:'Apto 3Q – Vila Madalena',       cliente:'Rodrigo Mota',   corretor:'Ricardo Costa', data:'2026-01-18', hora:'16:00', status:'cancelado',  tipo:'Virtual',    obs:'Preço acima do orçamento',     motivo:'preco',   avaliado:false },
+    { id:12, imovelId:3, imovel:'Sala Comercial – Paulista',     cliente:'Sandra Lima',    corretor:'Marcos Souza',  data:'2025-12-20', hora:'14:00', status:'cancelado',  tipo:'Presencial', obs:'Problema de saúde',            motivo:'pessoal', avaliado:false },
+  ],
+
+  clientes: [
+    { id:1, nome:'Fernando Alves', email:'fernando@email.com', tel:'(11) 95004-4444', interesse:'Compra',  faixa:'R$ 600k–1M',     obs:'Prefere zona oeste.',   visitas:2, lastContact:'2026-02-20', followupDue:'2026-02-23', favoritos:[1,4], jornada:'visita_realizada' },
+    { id:2, nome:'Beatriz Santos', email:'beatriz@email.com',  tel:'(11) 94005-5555', interesse:'Compra',  faixa:'Acima de R$ 1M', obs:'',                       visitas:3, lastContact:'2026-02-20', followupDue:'2026-02-21', favoritos:[2,4], jornada:'proposta' },
+    { id:3, nome:'André Lima',     email:'andre@email.com',    tel:'(11) 93006-6666', interesse:'Compra',  faixa:'Acima de R$ 1M', obs:'Interesse em cobertura', visitas:1, lastContact:'2026-01-28', followupDue:'2026-01-31', favoritos:[4],   jornada:'visita_agendada' },
+    { id:4, nome:'Camila Torres',  email:'camila@email.com',   tel:'(11) 92007-7777', interesse:'Locação', faixa:'R$ 300k–600k',   obs:'',                       visitas:4, lastContact:'2026-02-10', followupDue:'2026-02-13', favoritos:[1],   jornada:'visita_realizada' },
+    { id:5, nome:'Pedro Gomes',    email:'pedro@email.com',    tel:'(11) 91008-8888', interesse:'Locação', faixa:'Até R$ 300k',    obs:'',                       visitas:1, lastContact:'2026-01-15', followupDue:'2026-01-18', favoritos:[],    jornada:'lead', cancelReason:'Preço acima do orçamento' },
+    { id:6, nome:'Rodrigo Mota',   email:'rodrigo@email.com',  tel:'(11) 90009-9999', interesse:'Compra',  faixa:'R$ 600k–1M',     obs:'Terrenos/lotes',         visitas:1, lastContact:'2026-02-18', followupDue:'2026-02-25', favoritos:[5],   jornada:'visita_agendada' },
+    { id:7, nome:'Sandra Lima',    email:'sandra@email.com',   tel:'(11) 89010-0001', interesse:'Compra',  faixa:'Acima de R$ 1M', obs:'',                       visitas:2, lastContact:'2026-01-15', followupDue:'2026-01-18', favoritos:[2,4], jornada:'fechado' },
+    { id:8, nome:'Bruno Mendes',   email:'bruno@email.com',    tel:'(11) 88011-0002', interesse:'Compra',  faixa:'Acima de R$ 1M', obs:'Coberturas',             visitas:1, lastContact:'2026-01-22', followupDue:'2026-01-25', favoritos:[4],   jornada:'lead' },
+  ],
+
+  corretores: [
+    { id:1, nome:'Ricardo Costa', email:'ricardo@imob.com', creci:'12345-F', gerente:'Ana Ferreira', tel:'(11) 97002-2222', comissao:1.5, status:'ativo', visitas:18 },
+    { id:2, nome:'Juliana Pires', email:'juliana@imob.com', creci:'54321-F', gerente:'Ana Ferreira', tel:'(11) 96003-3333', comissao:1.2, status:'ativo', visitas:12 },
+    { id:3, nome:'Marcos Souza',  email:'marcos@imob.com',  creci:'99887-F', gerente:'Carlos Lima',  tel:'(11) 95004-4444', comissao:1.0, status:'ativo', visitas:8  },
+  ],
+
+  avaliacoes: [
+    { id:1, visitaId:4, imovel:'Apto 3Q – Vila Madalena', corretor:'Ricardo Costa', cliente:'Camila Torres', notaAtend:5, notaImovel:4, comentario:'Ótimo atendimento! Ricardo foi muito atencioso e explicou todos os detalhes.', interesse:'alto',  data:'2026-02-10' },
+    { id:2, visitaId:7, imovel:'Casa 4Q – Moema',         corretor:'Juliana Pires', cliente:'Sandra Lima',   notaAtend:4, notaImovel:5, comentario:'Imóvel incrível, exatamente o que procurava. Juliana foi excelente.',           interesse:'alto',  data:'2026-01-16' },
+  ],
+
+  chat: {
+    1: [ // Fernando -> Ricardo
+      { from:'corretor', text:'Olá Fernando! Confirmando sua visita amanhã às 10h no Apto de Vila Madalena.', time:'09:10' },
+      { from:'cliente',  text:'Oi Ricardo! Sim, confirmado. Tenho alguma dúvida sobre o condomínio, é caro?', time:'09:15' },
+      { from:'corretor', text:'O condomínio é R$ 850/mês, inclui portaria 24h, academia e salão de festas. Vale muito!', time:'09:18' },
+      { from:'cliente',  text:'Perfeito, obrigado! Até amanhã então 👍', time:'09:20' },
+    ],
+    2: [ // Beatriz -> Juliana
+      { from:'corretor', text:'Beatriz, sua visita à Casa em Moema está confirmada para amanhã às 14h.', time:'08:30' },
+      { from:'cliente',  text:'Ótimo! Posso levar meu marido?', time:'08:45' },
+      { from:'corretor', text:'Claro, sintam-se à vontade! Será um prazer recebê-los.', time:'08:47' },
+    ],
+  },
+
+  kanban: {
+    lead: [
+      { id:'k1', titulo:'Bruno Mendes', sub:'Cobertura Duplex – Perdizes', corretor:'RC', valor:'R$ 2.4M', tag:'Novo Lead' },
+      { id:'k2', titulo:'Rodrigo Mota', sub:'Terreno 500m² – Alphaville', corretor:'JP', valor:'R$ 680k', tag:'Site' },
+    ],
+    visita_agendada: [
+      { id:'k3', titulo:'Fernando Alves', sub:'Apto 3Q – Vila Madalena', corretor:'RC', valor:'R$ 850k', tag:'Presencial' },
+      { id:'k4', titulo:'André Lima', sub:'Cobertura – Perdizes', corretor:'RC', valor:'R$ 2.4M', tag:'Virtual' },
+      { id:'k5', titulo:'Rodrigo Mota', sub:'Terreno – Alphaville', corretor:'JP', valor:'R$ 680k', tag:'Presencial' },
+    ],
+    visita_realizada: [
+      { id:'k6', titulo:'Camila Torres', sub:'Apto 3Q – Vila Madalena', corretor:'RC', valor:'R$ 850k', tag:'⭐ 5.0' },
+      { id:'k7', titulo:'Sandra Lima', sub:'Casa 4Q – Moema', corretor:'JP', valor:'R$ 1.8M', tag:'⭐ 4.5' },
+    ],
+    proposta: [
+      { id:'k8', titulo:'Beatriz Santos', sub:'Casa 4Q – Moema', corretor:'JP', valor:'R$ 1.8M', tag:'Em negociação' },
+    ],
+    fechado: [
+      { id:'k9', titulo:'Gabriel Rocha', sub:'Apto 2Q – Pinheiros', corretor:'JP', valor:'R$ 620k', tag:'✅ Fechado' },
+    ],
+  },
+
+  notificacoes: [
+    { id:1, texto:'Nova visita agendada: Fernando Alves → Apto Vila Madalena amanhã 10h.', tempo:'2 min atrás',  lida:false, icon:'📅' },
+    { id:2, texto:'Beatriz Santos confirmou a visita à Casa 4Q – Moema.', tempo:'1h atrás',    lida:false, icon:'✅' },
+    { id:3, texto:'André Lima reagendou a visita para 22/02 às 11h.', tempo:'3h atrás',    lida:true,  icon:'🔄' },
+    { id:4, texto:'Pedro Gomes cancelou a visita à Sala Comercial – Paulista.', tempo:'ontem',       lida:true,  icon:'❌' },
+    { id:5, texto:'Nova avaliação recebida: Camila Torres deu ⭐⭐⭐⭐⭐ para Ricardo.', tempo:'2 dias atrás', lida:true,  icon:'⭐' },
+    { id:6, texto:'Imóvel cadastrado: Terreno 500m² – Alphaville por Juliana Pires.', tempo:'3 dias atrás', lida:true,  icon:'🏢' },
+  ],
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════ */
+let state = {
+  currentUser: null,
+  currentPage: 'dashboard',
+  theme: 'dark',
+  calYear: 2026, calMonth: 1,
+  visitaFilter: 'todas',
+  compareIds: [],
+  activeChatId: 1,
+  starsRating: { atend:0, imovel:0 },
+  avaliandoVisitaId: null,
+  interesseAval: '',
+  reagendarId: null,
+  favoritos: [],           // imovel IDs favorited by current user
+  tourImovelId: null,      // current tour virtual imovel
+  tourRoom: 0,             // current room index
+  crmFilter: 'todos',      // crm page filter
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   EMOJIS / HELPERS
+═══════════════════════════════════════════════════════════════ */
+const TIPO_EMOJI = { Apartamento:'🏙️', Casa:'🏡', Comercial:'🏢', Terreno:'🌳', Cobertura:'🌆' };
+const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const DAY_NAMES = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+function fmt(str) { if(!str) return ''; const [y,m,d]=str.split('-'); return `${d}/${m}/${y}`; }
+function fmtMoney(v, fin) { return fin==='Locação'?`R$ ${v.toLocaleString('pt-BR')}/mês`:`R$ ${v.toLocaleString('pt-BR')}`; }
+function initials(name) { return name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
+function roleColor(role) {
+  return {admin:'#A47EFA',gerente:'#5B9EF0',corretor:'#D4973A',cliente:'#50C17A'}[role]||'#888';
+}
+function roleBg(role) {
+  return {admin:'rgba(164,126,250,.15)',gerente:'rgba(91,158,240,.15)',corretor:'rgba(212,151,58,.15)',cliente:'rgba(80,193,122,.15)'}[role]||'#333';
+}
+function roleLabel(role) {
+  return {admin:'Administrador',gerente:'Gerente',corretor:'Corretor',cliente:'Cliente'}[role]||role;
+}
+function badge(status) {
+  const map={agendado:'Agendado',confirmado:'Confirmado',realizado:'Realizado',cancelado:'Cancelado',disponivel:'Disponível',reservado:'Reservado',vendido:'Vendido',ativo:'Ativo'};
+  return `<span class="badge s-${status}"><span class="badge-dot"></span>${map[status]||status}</span>`;
+}
+function roleBadge(role) {
+  return `<span class="badge role-${role}">${roleLabel(role)}</span>`;
+}
+function stars(n,sm=false) {
+  return '⭐'.repeat(n)+(sm?'':(' '+n.toFixed(1)));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SCOPE — Hierarchical data filtering by role
+   Admin   → everything
+   Gerente → only corretores under them + their imoveis/visitas/clientes
+   Corretor→ only their own data
+═══════════════════════════════════════════════════════════════ */
+function myCorretores() {
+  const u = state.currentUser;
+  if(!u) return DB.corretores;
+  if(u.role === 'admin')    return DB.corretores;
+  if(u.role === 'gerente')  return DB.corretores.filter(c => c.gerente === u.nome);
+  if(u.role === 'corretor') return DB.corretores.filter(c => c.nome === u.nome);
+  return [];
+}
+
+function myCorretoresNomes() {
+  return myCorretores().map(c => c.nome);
+}
+
+function myImoveis() {
+  const u = state.currentUser;
+  if(!u) return DB.imoveis;
+  if(u.role === 'admin')    return DB.imoveis;
+  if(u.role === 'gerente')  { const nomes = myCorretoresNomes(); return DB.imoveis.filter(im => nomes.includes(im.corrResp)); }
+  if(u.role === 'corretor') return DB.imoveis.filter(im => im.corrResp === u.nome);
+  return DB.imoveis; // cliente sees all
+}
+
+function myVisitas() {
+  const u = state.currentUser;
+  if(!u) return DB.visitas;
+  if(u.role === 'admin')    return DB.visitas;
+  if(u.role === 'gerente')  { const nomes = myCorretoresNomes(); return DB.visitas.filter(v => nomes.includes(v.corretor)); }
+  if(u.role === 'corretor') return DB.visitas.filter(v => v.corretor === u.nome);
+  if(u.role === 'cliente')  return DB.visitas.filter(v => v.cliente === u.nome);
+  return DB.visitas;
+}
+
+function myClientes() {
+  const u = state.currentUser;
+  if(!u) return DB.clientes;
+  if(u.role === 'admin')    return DB.clientes;
+  const vis = myVisitas();
+  const clienteNomes = [...new Set(vis.map(v => v.cliente))];
+  return DB.clientes.filter(cl => clienteNomes.includes(cl.nome));
+}
+
+function myAvaliacoes() {
+  const u = state.currentUser;
+  if(!u) return DB.avaliacoes;
+  if(u.role === 'admin')    return DB.avaliacoes;
+  if(u.role === 'gerente')  { const nomes = myCorretoresNomes(); return DB.avaliacoes.filter(a => nomes.includes(a.corretor)); }
+  if(u.role === 'corretor') return DB.avaliacoes.filter(a => a.corretor === u.nome);
+  if(u.role === 'cliente')  return DB.avaliacoes.filter(a => a.cliente === u.nome);
+  return DB.avaliacoes;
+}
+
+function isMyCorretor(nome) {
+  return myCorretoresNomes().includes(nome);
+}
+
+/* ─── Gerente nav badge helper (scoped) ─── */
+function scopedVisitasBadge() {
+  const u = state.currentUser;
+  if(!u) return 0;
+  return myVisitas().filter(v => v.status === 'agendado').length;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LOGIN
+═══════════════════════════════════════════════════════════════ */
+/* ── Role hierarchy ─────────────────────────────────────────
+   admin    → admin, gerente, corretor, cliente (mesma org)
+   gerente  → corretor, cliente
+   corretor → apenas cliente
+──────────────────────────────────────────────────────────── */
+const ROLE_ORDER  = ['cliente','corretor','gerente','admin'];
+const ROLE_LABELS = { admin:'Administrador', gerente:'Gerente', corretor:'Corretor', cliente:'Cliente' };
+
+function rolesQuePosCadastrar(role) {
+  if (role === 'admin')    return ['admin','gerente','corretor','cliente'];
+  if (role === 'gerente')  return ['corretor','cliente'];
+  if (role === 'corretor') return ['cliente'];
+  return [];
+}
+
+// Login state — module-level so doLogin/selectProfile are global
+const _LOGIN_PROFILES = [
+  { userId:1, label:'Administrador',        role:'admin'    },
+  { userId:2, label:'Gerente (Ana)',         role:'gerente'  },
+  { userId:5, label:'Gerente (Carlos)',      role:'gerente'  },
+  { userId:3, label:'Corretor (Ricardo)',    role:'corretor' },
+  { userId:4, label:'Corretor (Juliana)',    role:'corretor' },
+  { userId:6, label:'Cliente (Fernando)',    role:'cliente'  },
+  { userId:8, label:'Cliente (Beatriz)',     role:'cliente'  },
+];
+// _LOGIN_PROFILES kept for reference but login now uses DB.users directly
+let _loginSelected = null;
+
+function selectProfile(id) {
+  _loginSelected = id;
+  _renderLoginProfiles();
+}
+
+function _renderLoginProfiles() {
+  const container = document.getElementById('login-profiles');
+  if (!container) return;
+  const users = DB.users.filter(u => u.ativo);
+  if (!_loginSelected && users.length) _loginSelected = users[0].id;
+  container.innerHTML = users.map(u => {
+    const sel = _loginSelected === u.id;
+    const lbl = {admin:'Administrador',gerente:'Gerente',corretor:'Corretor',cliente:'Cliente'}[u.role]||u.role;
+    return '<div class="profile-card ' + (sel?'selected':'') + '" onclick="selectProfile(' + u.id + ')">'
+      + '<div class="profile-avatar" style="background:' + roleBg(u.role) + ';color:' + roleColor(u.role) + '">'
+      + (u.avatar ? '<img src="' + u.avatar + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">' : initials(u.nome))
+      + '</div>'
+      + '<div class="profile-card-name">' + u.nome + '</div>'
+      + '<div class="profile-card-role">' + lbl + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+async function doLogin() {
+  const emailEl   = document.getElementById('login-email');
+  const senhaEl   = document.getElementById('login-senha');
+  const errEl     = document.getElementById('login-error');
+  const emailWrap = document.getElementById('login-email-wrap');
+  const loginBtn  = document.querySelector('.btn-login');
+  if (errEl) errEl.style.display = 'none';
+
+  // ── Demo profile picker mode ──────────────────────────────
+  if (emailWrap && emailWrap.style.display === 'none') {
+    const u = DB.users.find(x => x.id === _loginSelected);
+    if (!u) { showToast('Selecione um perfil', 'error'); return; }
+    _enterApp(u); return;
+  }
+
+  // ── Email + senha mode ────────────────────────────────────
+  const email = (emailEl?.value || '').trim().toLowerCase();
+  const senha = senhaEl?.value || '';
+  if (!email) {
+    if (errEl) { errEl.textContent = 'Digite seu email'; errEl.style.display = ''; }
+    emailEl?.focus(); return;
+  }
+  if (!senha) {
+    if (errEl) { errEl.textContent = 'Digite sua senha'; errEl.style.display = ''; }
+    senhaEl?.focus(); return;
+  }
+
+  // Feedback visual
+  if (loginBtn) { loginBtn.textContent = 'Entrando…'; loginBtn.disabled = true; }
+
+  try {
+    if (_firebaseReady && _auth) {
+      // ── Firebase Auth ─────────────────────────────────────
+      await firebaseLogin(email, senha);
+      // onAuthStateChanged vai cuidar do resto
+      // (initApp é chamado dentro do listener)
+    } else {
+      // ── Modo demo sem Firebase ────────────────────────────
+      const u = DB.users.find(x =>
+        x.email.toLowerCase() === email && x.senha === senha && x.ativo);
+      if (!u) throw new Error('Email ou senha incorretos');
+      _enterApp(u);
+    }
+  } catch(e) {
+    if (errEl) { errEl.textContent = e.message; errEl.style.display = ''; }
+    senhaEl?.select();
+  } finally {
+    if (loginBtn) {
+      loginBtn.innerHTML = '<span>Entrar</span><span>→</span>';
+      loginBtn.disabled = false;
+    }
+  }
+}
+
+function _enterApp(user) {
+  state.currentUser = user;
+  const screen = document.getElementById('login-screen');
+  screen.style.animation = 'fadeUp .3s ease reverse both';
+  setTimeout(() => {
+    screen.style.display = 'none';
+    document.getElementById('app').classList.add('visible');
+    initApp();
+    if (_firebaseReady) startRealtimeSync();
+  }, 300);
+}
+
+function initLogin() {
+  document.title = DB.company.name + ' Pro';
+  _renderLoginProfiles();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   APP INIT
+═══════════════════════════════════════════════════════════════ */
+function initApp() {
+  buildSideNav();
+  updateUserPill();
+  applyBranding();
+  initBottomNav();
+  // Data loaded before initApp in Firebase Auth flow; realtime sync already started
+  // Load user favorites from DB
+  const cl = DB.clientes.find(c=>c.nome===state.currentUser.nome);
+  if(cl && cl.favoritos) state.favoritos = [...cl.favoritos];
+  const startPage = state.currentUser.role === 'cliente' ? 'dashboard-cliente' : 'dashboard';
+  navigate(startPage);
+}
+
+function initBottomNav() {
+  const role = state.currentUser.role;
+  // Adjust bottom nav items per role
+  const bn = document.getElementById('bottom-nav');
+  if(!bn) return;
+  // For non-client roles, "visitas" tab shows agenda instead
+  const visitBtn = document.getElementById('bn-visitas');
+  if(visitBtn && role !== 'cliente') {
+    visitBtn.querySelector('.bn-icon').textContent = '📅';
+    visitBtn.querySelector('.bn-label').textContent = 'Agenda';
+    visitBtn.onclick = () => bnNavigate('agenda-bn');
+  }
+  // Register agenda-bn target
+  BN_MAP['agenda'] = 'visitas';
+}
+
+function buildSideNav() {
+  const u = state.currentUser;
+  const role = u.role;
+  const nav = [
+    { id:'dashboard', icon:'⊞', label:'Início',        roles:['admin','gerente','corretor'] },
+    { id:'dashboard', icon:'🏠', label:'Início',        roles:['cliente'], clientPage: true },
+    { id:'imoveis',   icon:'🏢', label:'Imóveis',      roles:['admin','gerente','corretor','cliente'] },
+    { id:'agenda',    icon:'📅', label:'Agenda',       roles:['admin','gerente','corretor'] },
+    { id:'visitas',   icon:'🗓️', label:'Minhas Visitas',roles:['cliente'], badge:()=>DB.visitas.filter(v=>v.cliente===state.currentUser.nome&&v.status==='agendado').length },
+    { id:'visitas',   icon:'🚶', label:'Visitas',      roles:['admin','gerente','corretor'], badge:()=>scopedVisitasBadge() },
+    { sep:'Gestão' },
+    { id:'crm',       icon:'🧠', label:'CRM Inteligente', roles:['admin','gerente','corretor'], badge:()=>crmAlertCount() },
+    { id:'clientes',  icon:'👥', label:'Clientes',        roles:['admin','gerente','corretor'] },
+    { id:'corretores',icon:'🏅', label:'Corretores',      roles:['admin','gerente'] },
+    { id:'funil',     icon:'🎯', label:'Funil de Vendas', roles:['admin','gerente','corretor'] },
+    { id:'mapa',      icon:'🗺️', label:'Mapa',            roles:['admin','gerente','corretor'] },
+    { id:'favoritos', icon:'❤️', label:'Meus Favoritos',  roles:['cliente'], badge:()=>state.favoritos.length },
+    { sep:'Comunicação' },
+    { id:'chat',      icon:'💬', label:'Chat',         roles:['admin','gerente','corretor','cliente'], badge:()=>2 },
+    { id:'avaliacoes',icon:'⭐', label:'Avaliações',   roles:['admin','gerente','corretor'] },
+    { id:'relatorios',icon:'📊', label:'Relatórios',   roles:['admin','gerente'] },
+    { id:'notificacoes',icon:'🔔',label:'Notificações',roles:['admin','gerente','corretor','cliente'], badge:()=>DB.notificacoes.filter(n=>!n.lida).length },
+    ...(role==='admin'?[
+      { sep:'Administração' },
+      { id:'usuarios',icon:'🛡️',label:'Usuários', roles:['master','admin','gerente','corretor'] },
+      { id:'configuracoes',icon:'⚙️',label:'Configurações',roles:['admin'] },
+    ]:[]),
+  ];
+
+  const html = nav
+    .filter(n => !n.id || n.roles.includes(role))
+    .filter((n,i,arr) => {
+      // deduplicate: if same id appears twice for same role, keep only this one
+      if(!n.id) return true;
+      const firstIdx = arr.findIndex(x=>x.id===n.id && x.roles.includes(role));
+      return i === firstIdx;
+    })
+    .map(n=>{
+    if(n.sep) return `<div class="nav-label">${n.sep}</div>`;
+    const b = n.badge ? n.badge() : 0;
+    const pageTarget = (n.id === 'dashboard' && role === 'cliente') ? 'dashboard-cliente' : n.id;
+    return `<div class="nav-item" id="nav-${n.id}" onclick="navigate('${pageTarget}')">
+      <span class="nav-icon">${n.icon}</span>
+      <span class="nav-text">${n.label}</span>
+      ${b>0?`<span class="nav-badge">${b}</span>`:''}
+    </div>`;
+  }).join('');
+  document.getElementById('sidebar-nav').innerHTML = html;
+}
+
+function updateUserPill() {
+  const u = state.currentUser;
+  const av = document.getElementById('sb-avatar');
+  if(u.avatar) {
+    av.innerHTML = `<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+    av.style.background = 'none';
+  } else {
+    av.innerHTML = '';
+    av.textContent = initials(u.nome);
+    av.style.background = roleBg(u.role);
+    av.style.color = roleColor(u.role);
+  }
+  document.getElementById('sb-uname').textContent = u.nome;
+  document.getElementById('sb-urole').textContent = roleLabel(u.role);
+}
+
+function applyBranding() {
+  document.getElementById('sb-name').textContent = DB.company.name;
+  document.getElementById('sb-logo').textContent = DB.company.logo ? '' : '🏠';
+  if(DB.company.logo) {
+    document.getElementById('sb-logo').innerHTML = `<img src="${DB.company.logo}" alt="logo">`;
+  }
+  document.title = DB.company.name + ' Pro';
+  document.documentElement.style.setProperty('--amber', DB.company.color);
+  // derive amber2 as lighter
+  document.documentElement.style.setProperty('--amber2', lightenHex(DB.company.color, 25));
+  document.documentElement.style.setProperty('--amber-dim', hexToRgba(DB.company.color, .12));
+  document.documentElement.style.setProperty('--amber-glow', hexToRgba(DB.company.color, .25));
+}
+
+function lightenHex(hex, pct) {
+  let r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  r=Math.min(255,r+pct); g=Math.min(255,g+pct); b=Math.min(255,b+pct);
+  return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+function hexToRgba(hex,a) {
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NAVIGATE
+═══════════════════════════════════════════════════════════════ */
+const PAGE_META = {
+  dashboard:           { title:'Dashboard',       sub:()=>`Bem-vindo, ${state.currentUser.nome.split(' ')[0]} 👋`, action:'+ Nova Visita' },
+  'dashboard-cliente': { title:'Início',           sub:()=>`Olá, ${state.currentUser.nome.split(' ')[0]}! 👋`,      action:'+ Agendar Visita' },
+  imoveis:      { title:'Imóveis',         sub:()=>`${myImoveis().filter(i=>i.status==='disponivel').length} disponíveis`, action:'+ Novo Imóvel', minRole:['admin','gerente','corretor'] },
+  agenda:       { title:'Agenda',          sub:()=>'Calendário de visitas', action:'+ Agendar' },
+  visitas:      { title:'Visitas',         sub:()=>`${myVisitas().length} no total`, action:'+ Nova Visita' },
+  crm:          { title:'CRM Inteligente',  sub:()=>'Leads, scores e alertas de follow-up', action:null },
+  favoritos:    { title:'Meus Favoritos',   sub:()=>`${state.favoritos.length} imóveis salvos`, action:null },
+  clientes:     { title:'Clientes',        sub:()=>`${myClientes().length} cadastrados`, action:'+ Novo Cliente' },
+  corretores:   { title:'Corretores',      sub:()=>`${DB.corretores.length} ativos`, action:'+ Novo Corretor' },
+  funil:        { title:'Funil de Vendas', sub:()=>'Pipeline de negócios', action:null },
+  mapa:         { title:'Mapa de Imóveis', sub:()=>'Visualização geográfica', action:null },
+  chat:         { title:'Chat',            sub:()=>'Mensagens internas', action:null },
+  avaliacoes:   { title:'Avaliações',      sub:()=>'Feedback pós-visita', action:null },
+  relatorios:   { title:'Relatórios',      sub:()=>'Métricas e desempenho', action:'📥 Exportar' },
+  notificacoes: { title:'Notificações',    sub:()=>`${DB.notificacoes.filter(n=>!n.lida).length} não lidas`, action:null },
+  perfil:       { title:'Meu Perfil',      sub:()=>'Configurações pessoais', action:null },
+  usuarios:     { title:'Usuários',        sub:()=>`${DB.users.length} cadastrados`, action:'+ Novo Usuário' },
+  configuracoes:{ title:'Configurações',   sub:()=>'Administração da plataforma', action:null },
+};
+
+function navigate(page) {
+  const role = state.currentUser.role;
+  // access control
+  if(['configuracoes','usuarios'].includes(page) && role!=='admin') { showToast('Acesso restrito ao Administrador','error'); return; }
+  if(['corretores','relatorios','funil','crm'].includes(page) && role==='cliente') return;
+
+  state.currentPage = page;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const el = document.getElementById(`page-${page}`);
+  if(el) el.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  // For dashboard-cliente, highlight the nav-dashboard item
+  const navId = page === 'dashboard-cliente' ? 'dashboard' : page;
+  const ni = document.getElementById(`nav-${navId}`);
+  if(ni) ni.classList.add('active');
+
+  const meta = PAGE_META[page]||{title:page,sub:()=>'',action:null};
+  document.getElementById('ph-title').textContent = meta.title;
+  document.getElementById('ph-sub').textContent = typeof meta.sub==='function'?meta.sub():meta.sub;
+  const tb = document.getElementById('tb-action');
+  const roleAllowed = !meta.minRole || meta.minRole.includes(role);
+  if(meta.action && roleAllowed) { tb.style.display=''; tb.textContent=meta.action; }
+  else { tb.style.display='none'; }
+
+  // update notif badge
+  const nd = document.getElementById('notif-dot');
+  nd.style.display = DB.notificacoes.some(n=>!n.lida)?'':'none';
+
+  // sync bottom nav highlight
+  const bnActive = { dashboard:'inicio','dashboard-cliente':'inicio', imoveis:'imoveis', visitas:'visitas', agenda:'visitas', chat:'chat' };
+  updateBottomNav(bnActive[page] || '');
+  updateMobFab(page);
+
+  // render
+  const renders = {
+    dashboard: renderDashboard, 'dashboard-cliente': renderDashboardCliente,
+    imoveis: renderImoveis, agenda: renderCalendar,
+    crm: renderCRM, favoritos: renderFavoritos,
+    visitas: renderVisitas, clientes: renderClientes, corretores: renderCorretores,
+    funil: renderKanban, chat: renderChat, mapa: renderMap, avaliacoes: renderAvaliacoes,
+    relatorios: renderRelatorios, notificacoes: renderNotificacoes, perfil: renderPerfil,
+    usuarios: renderUsuarios,
+  };
+  if(renders[page]) renders[page]();
+
+  // render google calendar panel when agenda opens
+  if(page === 'agenda') setTimeout(renderGCalEvents, 50);
+}
+
+function handleTopAction() {
+  const map = {
+    dashboard:'m-agendar', 'dashboard-cliente':'m-agendar',
+    imoveis:'m-add-imovel', agenda:'m-agendar', visitas:'m-agendar',
+    clientes:'m-add-cliente', corretores:'m-add-corretor', usuarios:'m-add-usuario',
+  };
+  if(state.currentPage==='relatorios') { exportPDF(); return; }
+  const m = map[state.currentPage];
+  if(m) openModal(m);
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+}
+
+async function logout() {
+  if (!confirm('Sair da plataforma?')) return;
+  await firebaseLogout();
+  state.currentUser = null;
+  // Clear UI
+  const screen = document.getElementById('login-screen');
+  screen.style.display = '';
+  screen.style.animation = 'none';
+  document.getElementById('app').classList.remove('visible');
+  // Clear form
+  const em = document.getElementById('login-email');
+  const pw = document.getElementById('login-senha');
+  if (em) em.value = '';
+  if (pw) pw.value = '';
+  const errEl = document.getElementById('login-error');
+  if (errEl) errEl.style.display = 'none';
+  initLogin();
+}
+
+function toggleTheme() {
+  state.theme = state.theme==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme', state.theme);
+  document.getElementById('theme-btn').textContent = state.theme==='dark'?'🌙':'☀️';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DASHBOARD
+═══════════════════════════════════════════════════════════════ */
+let chartVisitas=null, chartDonut=null;
+
+function renderDashboard() {
+  const role = state.currentUser.role;
+  const visitas = myVisitas();
+  const imoveis = myImoveis();
+  const corretores = myCorretores();
+  const avaliacoes = myAvaliacoes();
+  const ag   = visitas.filter(v=>v.status==='agendado').length;
+  const conf = visitas.filter(v=>v.status==='confirmado').length;
+  const real = visitas.filter(v=>v.status==='realizado').length;
+  const disp = imoveis.filter(i=>i.status==='disponivel').length;
+  const scopeLabel = role==='gerente' ? ' (meu grupo)' : role==='corretor' ? ' (meus)' : '';
+
+  const statsData = role==='cliente'
+    ? [
+        {icon:'📅',val:visitas.filter(v=>v.status==='agendado').length, lbl:'Minhas Visitas',color:'#5B9EF0'},
+        {icon:'✅',val:visitas.filter(v=>v.status==='realizado').length, lbl:'Realizadas',color:'#50C17A'},
+        {icon:'🏢',val:disp, lbl:'Imóveis Disponíveis',color:DB.company.color},
+        {icon:'⭐',val:(avaliacoes.length>0?(avaliacoes.reduce((s,a)=>(s+a.notaAtend+a.notaImovel)/2,0)/avaliacoes.length).toFixed(1):0), lbl:'Avaliação Média',color:'#A47EFA'},
+      ]
+    : [
+        {icon:'🏢',val:disp,          lbl:`Imóveis Disponíveis${scopeLabel}`,color:DB.company.color},
+        {icon:'📅',val:ag+conf,       lbl:`Visitas Pendentes${scopeLabel}`,  color:'#5B9EF0',trend:`${conf} confirmadas`},
+        {icon:'✅',val:real,          lbl:`Visitas Realizadas${scopeLabel}`,  color:'#50C17A',trend:'este mês'},
+        {icon:'🏅',val:corretores.length, lbl:`Corretores${scopeLabel}`,     color:'#A47EFA'},
+      ];
+
+  document.getElementById('dash-stats').innerHTML = statsData.map(s=>`
+    <div class="stat-card">
+      <div class="stat-stripe" style="background:${s.color}"></div>
+      <div class="stat-icon">${s.icon}</div>
+      <div class="stat-val" style="color:${s.color}">${s.val}</div>
+      <div class="stat-lbl">${s.lbl}</div>
+      ${s.trend?`<div class="stat-trend" style="color:var(--text3)">${s.trend}</div>`:''}
+    </div>`).join('');
+
+  // chart bar
+  const months = ['Set','Out','Nov','Dez','Jan','Fev'];
+  const visitData = [12,18,15,22,19,DB.visitas.length];
+  const ctx1 = document.getElementById('chart-visitas').getContext('2d');
+  if(chartVisitas) chartVisitas.destroy();
+  chartVisitas = new Chart(ctx1, {
+    type:'bar',
+    data:{ labels:months, datasets:[{
+      label:'Visitas', data:visitData,
+      backgroundColor: hexToRgba(DB.company.color,.7),
+      borderColor: DB.company.color,
+      borderWidth:2, borderRadius:6,
+    }]},
+    options:{ plugins:{legend:{display:false}}, scales:{
+      x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#666',font:{family:'Outfit'}}},
+      y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#666',font:{family:'Outfit'}}},
+    }, responsive:true }
+  });
+
+  // chart donut
+  const ctx2 = document.getElementById('chart-donut').getContext('2d');
+  if(chartDonut) chartDonut.destroy();
+  chartDonut = new Chart(ctx2, {
+    type:'doughnut',
+    data:{
+      labels:['Agendadas','Confirmadas','Realizadas','Canceladas'],
+      datasets:[{
+        data:[ag,conf,real,visitas.filter(v=>v.status==='cancelado').length],
+        backgroundColor:['#5B9EF0','#50C17A',DB.company.color,'#E05555'],
+        borderWidth:0, hoverOffset:4
+      }]
+    },
+    options:{plugins:{legend:{labels:{color:'#888',font:{family:'Outfit'},boxWidth:10}}},cutout:'70%',responsive:false}
+  });
+
+  // next visits (scoped)
+  const next = visitas.filter(v=>v.status!=='cancelado'&&v.status!=='realizado').slice(0,5);
+  document.getElementById('dash-visits').innerHTML = next.length
+    ? next.map(v=>`<tr><td class="cell-main">${v.imovel}</td><td>${v.cliente}</td><td>${fmt(v.data)} ${v.hora}</td><td>${badge(v.status)}</td></tr>`).join('')
+    : `<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:24px">Nenhuma visita próxima</td></tr>`;
+
+  // history
+  const hist = [
+    {color:'amber',title:'Visita Agendada',desc:'Fernando Alves → Apto Vila Madalena',time:'Hoje, 10:32'},
+    {color:'green',title:'Visita Confirmada',desc:'Beatriz Santos → Casa 4Q Moema',time:'Hoje, 09:15'},
+    {color:'blue',title:'Imóvel Cadastrado',desc:'Terreno 500m² – Alphaville',time:'Ontem, 16:00'},
+    {color:'',title:'Visita Cancelada',desc:'Pedro Gomes → Sala Comercial',time:'Ontem, 11:20'},
+  ];
+  document.getElementById('dash-hist').innerHTML = hist.map(h=>`
+    <div class="hist-item">
+      <div class="hist-dot ${h.color}"></div>
+      <div class="hist-time">${h.time}</div>
+      <div class="hist-card">
+        <div class="hist-title">${h.title}</div>
+        <div class="hist-desc">${h.desc}</div>
+      </div>
+    </div>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DASHBOARD CLIENTE
+═══════════════════════════════════════════════════════════════ */
+function renderDashboardCliente() {
+  const u = state.currentUser;
+  const nome = u.nome.split(' ')[0];
+
+  const minhasVisitas = DB.visitas.filter(v => v.cliente === u.nome);
+  const proximas = minhasVisitas
+    .filter(v => v.status === 'agendado' || v.status === 'confirmado')
+    .sort((a,b) => a.data.localeCompare(b.data));
+  const pendentesAval = minhasVisitas.filter(v => v.status === 'realizado' && !v.avaliado);
+
+  // Hero
+  document.getElementById('cl-greeting').textContent = `Olá, ${nome}! 👋`;
+  const countEl = document.getElementById('cl-hero-count');
+  countEl.textContent = proximas.length === 0
+    ? 'nenhuma visita'
+    : proximas.length === 1 ? '1 visita' : `${proximas.length} visitas`;
+
+  // Shortcut desc
+  const disp = DB.imoveis.filter(i=>i.status==='disponivel').length;
+  const scDesc = document.getElementById('cl-sc-imoveis-desc');
+  if(scDesc) scDesc.textContent = `${disp} disponíveis para visitar`;
+
+  // Visit list
+  const listEl = document.getElementById('cl-visit-list');
+  if (proximas.length === 0) {
+    listEl.innerHTML = `
+      <div class="cl-empty">
+        <div class="cl-empty-icon">📭</div>
+        <div style="font-weight:600;margin-bottom:4px;color:var(--text)">Nenhuma visita agendada</div>
+        <div style="font-size:.78rem">Clique em "Agendar Nova Visita" para começar</div>
+      </div>`;
+  } else {
+    listEl.innerHTML = proximas.slice(0, 4).map(v => {
+      const [y,m,d] = v.data.split('-');
+      const monthShort = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][parseInt(m)-1];
+      return `
+        <div class="cl-visit-card">
+          <div class="cl-visit-date-block">
+            <div class="cl-visit-date-day">${d}</div>
+            <div class="cl-visit-date-mon">${monthShort}</div>
+          </div>
+          <div class="cl-visit-info">
+            <div class="cl-visit-title">${v.imovel}</div>
+            <div class="cl-visit-meta">
+              <span>🕐 ${v.hora}</span>
+              <span>📍 ${v.tipo}</span>
+              <span>🏅 ${v.corretor}</span>
+            </div>
+          </div>
+          <div class="cl-visit-actions">
+            ${badge(v.status)}
+            <button class="icon-btn amber" onclick="openReagendar(${v.id})" title="Reagendar">🔄</button>
+            <button class="icon-btn red" onclick="cancelarVisitaCliente(${v.id})" title="Cancelar">✕</button>
+          </div>
+        </div>`;
+    }).join('');
+
+    if(proximas.length > 4) {
+      listEl.innerHTML += `<div style="text-align:center;padding:10px 0">
+        <button class="btn btn-ghost btn-sm" onclick="navigate('visitas')">Ver mais ${proximas.length - 4} visitas →</button>
+      </div>`;
+    }
+  }
+
+  // Corretor card
+  const lastVisit = [...minhasVisitas].reverse().find(v=>v.corretor);
+  const corrNome = lastVisit ? lastVisit.corretor : (DB.corretores[0]?.nome || '');
+  const corr = DB.corretores.find(c=>c.nome===corrNome) || DB.corretores[0];
+  if(corr) {
+    document.getElementById('cl-cor-ava').textContent = initials(corr.nome);
+    document.getElementById('cl-cor-name').textContent = corr.nome;
+    document.getElementById('cl-cor-info').textContent = `CRECI ${corr.creci} · ${corr.tel}`;
+  }
+
+  // Pending evaluation
+  const avalSection = document.getElementById('cl-pending-aval-section');
+  if(pendentesAval.length > 0) {
+    avalSection.style.display = '';
+    const first = pendentesAval[0];
+    document.getElementById('cl-pending-aval-title').textContent = `Visita em ${first.imovel}`;
+    document.getElementById('cl-pending-aval-btn').onclick = () => openAvaliar(first.id);
+  } else {
+    avalSection.style.display = 'none';
+  }
+
+  // Mini stats
+  const realizadas = minhasVisitas.filter(v=>v.status==='realizado').length;
+  const avaliacoes = DB.avaliacoes.filter(a=>a.cliente===u.nome).length;
+  const miniData = [
+    { icon:'🗓️', val: proximas.length, lbl:'Agendadas',  color:'var(--blue)' },
+    { icon:'✅', val: realizadas,       lbl:'Realizadas', color:'var(--green)' },
+    { icon:'⭐', val: avaliacoes,       lbl:'Avaliações', color:'var(--amber2)' },
+    { icon:'🏠', val: minhasVisitas.length, lbl:'Total', color:'var(--text2)' },
+  ];
+  document.getElementById('cl-mini-stats').innerHTML = miniData.map(s=>`
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 10px;text-align:center">
+      <div style="font-size:1rem;margin-bottom:4px">${s.icon}</div>
+      <div style="font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:${s.color};line-height:1">${s.val}</div>
+      <div style="font-size:.65rem;color:var(--text3);margin-top:3px">${s.lbl}</div>
+    </div>`).join('');
+}
+
+function cancelarVisitaCliente(id) {
+  if(!confirm('Deseja cancelar esta visita?')) return;
+  DB.visitas.find(x=>x.id===id).status='cancelado';
+  renderDashboardCliente();
+  showToast('Visita cancelada','info');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   IMÓVEIS
+═══════════════════════════════════════════════════════════════ */
+function renderImoveis() {
+  const search = document.getElementById('im-search').value.toLowerCase();
+  const tipo = document.getElementById('im-f-tipo').value;
+  const status = document.getElementById('im-f-status').value;
+  let data = myImoveis().filter(i=>{
+    if(search && !i.titulo.toLowerCase().includes(search) && !i.endereco.toLowerCase().includes(search)) return false;
+    if(tipo && i.tipo!==tipo) return false;
+    if(status && i.status!==status) return false;
+    return true;
+  });
+
+  const role = state.currentUser.role;
+  document.getElementById('props-grid').innerHTML = data.map(im=>{
+    const sel = state.compareIds.includes(im.id);
+    return `<div class="prop-card ${sel?'selected-compare':''}" id="pc-${im.id}">
+      <div class="prop-img">
+        <span>${TIPO_EMOJI[im.tipo]||'🏠'}</span>
+        <div class="prop-img-overlay"></div>
+        <div class="prop-img-badge">${badge(im.status)}</div>
+        <div class="prop-compare-chk ${sel?'checked':''}" onclick="toggleCompare(${im.id},event)">${sel?'✓':''}</div>
+      </div>
+      <div class="prop-body">
+        <div class="prop-title">${im.titulo}</div>
+        <div class="prop-addr">📍 ${im.endereco}</div>
+        <div class="prop-price">${fmtMoney(im.preco,im.finalidade)}</div>
+        <div class="prop-specs">
+          ${im.quartos?`<span>🛏 ${im.quartos}</span>`:''}
+          ${im.banheiros?`<span>🚿 ${im.banheiros}</span>`:''}
+          ${im.vagas?`<span>🚗 ${im.vagas}</span>`:''}
+          <span>📐 ${im.area}m²</span>
+        </div>
+      </div>
+      <div class="prop-foot">
+        ${role !== 'cliente' ? `<button class="btn btn-primary btn-sm" style="flex:1" onclick="event.stopPropagation();agendarParaImovel(${im.id})">📅 Agendar</button>` : ''}
+        ${role === 'cliente' ? `<button class="btn btn-primary btn-sm" style="flex:1" onclick="event.stopPropagation();agendarParaImovel(${im.id})">📅 Agendar Visita</button>` : ''}
+        <button class="icon-btn ${state.favoritos.includes(im.id)?'active':''}" onclick="event.stopPropagation();toggleFavorito(${im.id})" title="${state.favoritos.includes(im.id)?'Remover dos favoritos':'Adicionar aos favoritos'}" style="color:${state.favoritos.includes(im.id)?'#e05555':'var(--text3)'}">❤️</button>
+        <button class="icon-btn" onclick="event.stopPropagation();openCalculadora(${im.id})" title="Simular Financiamento" style="color:var(--amber)">🧮</button>
+        <button class="icon-btn" onclick="event.stopPropagation();openTourVirtual(${im.id})" title="Tour Virtual 360°" style="color:var(--purple)">🌐</button>
+        <button class="icon-btn" onclick="event.stopPropagation();openHistoricoImovel(${im.id})" title="Histórico">📋</button>
+        <button class="icon-btn" onclick="event.stopPropagation();sendWaImovel(${im.id})" title="Compartilhar no WhatsApp" style="color:#25D366">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        </button>
+        ${['admin','gerente'].includes(role) ? `<button class="icon-btn amber" onclick="event.stopPropagation();openEditImovel(${im.id})" title="Editar">✏️</button>` : ''}
+        ${['admin','gerente'].includes(role) ? `<button class="icon-btn red" onclick="removeImovel(${im.id},event)" title="Remover">🗑</button>` : ''}
+      </div>
+    </div>`;
+  }).join('') || `<div style="grid-column:1/-1;padding:48px;text-align:center;color:var(--text3)">🏢 Nenhum imóvel encontrado</div>`;
+
+  updateCompareBar();
+}
+
+function toggleCompare(id, e) {
+  e.stopPropagation();
+  const idx = state.compareIds.indexOf(id);
+  if(idx>-1) state.compareIds.splice(idx,1);
+  else if(state.compareIds.length<3) state.compareIds.push(id);
+  else { showToast('Máximo de 3 imóveis para comparar','info'); return; }
+  renderImoveis();
+}
+function updateCompareBar() {
+  const n = state.compareIds.length;
+  document.getElementById('compare-count').textContent=n;
+  document.getElementById('compare-bar-btn').style.display=n>=2?'':'none';
+  document.getElementById('compare-clear').style.display=n>0?'':'none';
+}
+function clearCompare() { state.compareIds=[]; renderImoveis(); }
+function agendarParaImovel(id) {
+  const im = DB.imoveis.find(i=>i.id===id);
+  populateAgendarSelects();
+  document.getElementById('ag-imovel').value = im.titulo;
+  updateWaPreview();
+  openModal('m-agendar');
+}
+function removeImovel(id, e) {
+  e.stopPropagation();
+  const role = state.currentUser.role;
+  if(!['admin','gerente'].includes(role)) { showToast('Sem permissão para remover imóveis','error'); return; }
+  if(!confirm('Tem certeza que deseja remover este imóvel? Esta ação não pode ser desfeita.')) return;
+  DB.imoveis = DB.imoveis.filter(i=>i.id!==id);
+  renderImoveis();
+  showToast('Imóvel removido','info');
+}
+
+function openEditImovel(id) {
+  const role = state.currentUser.role;
+  if(!['admin','gerente'].includes(role)) { showToast('Sem permissão para editar imóveis','error'); return; }
+  const im = DB.imoveis.find(i=>i.id===id);
+  if(!im) return;
+
+  // Populate corretor select
+  const sel = document.getElementById('edit-im-corr');
+  sel.innerHTML = DB.corretores.map(c=>`<option ${c.nome===im.corrResp?'selected':''}>${c.nome}</option>`).join('');
+
+  // Fill fields
+  document.getElementById('edit-im-id').value    = im.id;
+  document.getElementById('edit-im-tipo').value  = im.tipo;
+  document.getElementById('edit-im-fin').value   = im.finalidade;
+  document.getElementById('edit-im-tit').value   = im.titulo;
+  document.getElementById('edit-im-end').value   = im.endereco;
+  document.getElementById('edit-im-preco').value = im.preco;
+  document.getElementById('edit-im-area').value  = im.area;
+  document.getElementById('edit-im-qtos').value  = im.quartos;
+  document.getElementById('edit-im-ban').value   = im.banheiros;
+  document.getElementById('edit-im-vag').value   = im.vagas;
+  document.getElementById('edit-im-stat').value  = im.status;
+  document.getElementById('edit-im-desc').value  = im.desc;
+
+  openModal('m-edit-imovel');
+}
+
+function saveEditImovel() {
+  const id  = parseInt(document.getElementById('edit-im-id').value);
+  const im  = DB.imoveis.find(i=>i.id===id);
+  if(!im) return;
+
+  const titulo   = document.getElementById('edit-im-tit').value.trim();
+  const endereco = document.getElementById('edit-im-end').value.trim();
+  const preco    = parseFloat(document.getElementById('edit-im-preco').value);
+  if(!titulo || !endereco || !preco) { showToast('Preencha os campos obrigatórios','error'); return; }
+
+  im.tipo       = document.getElementById('edit-im-tipo').value;
+  im.finalidade = document.getElementById('edit-im-fin').value;
+  im.titulo     = titulo;
+  im.endereco   = endereco;
+  im.preco      = preco;
+  im.area       = parseInt(document.getElementById('edit-im-area').value) || 0;
+  im.quartos    = parseInt(document.getElementById('edit-im-qtos').value) || 0;
+  im.banheiros  = parseInt(document.getElementById('edit-im-ban').value)  || 0;
+  im.vagas      = parseInt(document.getElementById('edit-im-vag').value)  || 0;
+  im.status     = document.getElementById('edit-im-stat').value;
+  im.corrResp   = document.getElementById('edit-im-corr').value;
+  im.desc       = document.getElementById('edit-im-desc').value;
+
+  closeModal('m-edit-imovel');
+  renderImoveis();
+  showToast(`Imóvel "${im.titulo}" atualizado com sucesso!`, 'success');
+}
+
+function openComparar() {
+  const items = state.compareIds.map(id=>DB.imoveis.find(i=>i.id===id)).filter(Boolean);
+  if(items.length<2){showToast('Selecione pelo menos 2 imóveis','info');return;}
+
+  const rows = [
+    ['tipo','Tipo',i=>i.tipo],
+    ['preco','Preço',i=>fmtMoney(i.preco,i.finalidade)],
+    ['area','Área (m²)',i=>`${i.area} m²`],
+    ['quartos','Quartos',i=>i.quartos||'—'],
+    ['banheiros','Banheiros',i=>i.banheiros||'—'],
+    ['vagas','Vagas',i=>i.vagas||'—'],
+    ['status','Status',i=>badge(i.status)],
+    ['finalidade','Finalidade',i=>i.finalidade],
+    ['corretor','Corretor',i=>i.corrResp],
+    ['visitas','Nº Visitas',i=>i.visitas],
+  ];
+
+  let html = `<div style="overflow-x:auto"><div class="compare-table">`;
+  // header
+  html += `<div class="compare-header">
+    <div class="compare-col-hdr label-col"></div>
+    ${items.map(im=>`<div class="compare-col-hdr">
+      <div style="font-size:2rem;margin-bottom:6px">${TIPO_EMOJI[im.tipo]||'🏠'}</div>
+      <div style="font-weight:700;font-size:.88rem;color:var(--text)">${im.titulo}</div>
+      <div style="font-size:.72rem;color:var(--text3);margin-top:3px">${im.endereco}</div>
+    </div>`).join('')}
+  </div>`;
+
+  rows.forEach(([key,lbl,getter])=>{
+    const vals = items.map(getter);
+    let bestIdx=-1;
+    if(key==='preco') bestIdx=vals.indexOf(Math.min(...items.map(i=>i.preco)));
+    if(key==='area') bestIdx=vals.indexOf(Math.max(...items.map(i=>i.area)));
+    if(['quartos','banheiros','vagas'].includes(key)) bestIdx=vals.indexOf(Math.max(...items.map(getter)));
+    if(key==='visitas') bestIdx=vals.indexOf(Math.max(...items.map(i=>i.visitas)));
+
+    html += `<div class="compare-row">
+      <div class="compare-cell label">${lbl}</div>
+      ${vals.map((v,i)=>`<div class="compare-cell ${i===bestIdx?'best':''}">${v}</div>`).join('')}
+    </div>`;
+  });
+
+  html += `</div></div>`;
+  document.getElementById('compare-content').innerHTML = html;
+  openModal('m-comparar');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CALENDAR
+═══════════════════════════════════════════════════════════════ */
+function renderCalendar() {
+  document.getElementById('cal-month-lbl').textContent = `${MONTH_NAMES[state.calMonth]} ${state.calYear}`;
+  document.getElementById('cal-hdrs').innerHTML = DAY_NAMES.map(d=>`<div class="cal-day-hdr">${d}</div>`).join('');
+
+  const firstDay = new Date(state.calYear,state.calMonth,1).getDay();
+  const daysInMonth = new Date(state.calYear,state.calMonth+1,0).getDate();
+  const today = new Date();
+  const isThisMonth = today.getFullYear()===state.calYear && today.getMonth()===state.calMonth;
+
+  let html='';
+  for(let i=0;i<firstDay;i++) html+=`<div class="cal-cell empty"></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const ds=`${state.calYear}-${String(state.calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dv=DB.visitas.filter(v=>v.data===ds&&v.status!=='cancelado');
+    const isToday=isThisMonth&&d===today.getDate();
+    html+=`<div class="cal-cell ${isToday?'today':''}" onclick="openDayModal('${ds}')">
+      <div class="cal-num">${d}</div>
+      ${dv.slice(0,2).map(v=>`<div class="cal-evt ${v.status==='confirmado'?'green':v.status==='realizado'?'amber':'blue'}">${v.hora} ${v.cliente.split(' ')[0]}</div>`).join('')}
+      ${dv.length>2?`<div class="cal-evt" style="color:var(--text3)">+${dv.length-2} mais</div>`:''}
+    </div>`;
+  }
+  document.getElementById('cal-cells').innerHTML=html;
+}
+function calNav(d){ state.calMonth+=d; if(state.calMonth>11){state.calMonth=0;state.calYear++;} if(state.calMonth<0){state.calMonth=11;state.calYear--;} renderCalendar(); }
+function openDayModal(ds){
+  const dv=DB.visitas.filter(v=>v.data===ds);
+  if(!dv.length){ document.getElementById('ag-data').value=ds; populateAgendarSelects(); openModal('m-agendar'); return; }
+  const body=`<div style="font-size:.8rem;color:var(--text3);margin-bottom:14px">📅 ${fmt(ds)}</div>`+
+    dv.map(v=>`<div style="background:var(--bg3);border-radius:9px;padding:12px;margin-bottom:9px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+        <span style="font-weight:600;font-size:.85rem">${v.hora} – ${v.imovel}</span>${badge(v.status)}
+      </div>
+      <div style="font-size:.75rem;color:var(--text3)">👤 ${v.cliente} · 🏅 ${v.corretor}</div>
+    </div>`).join('');
+  openDetalheGenerico('Visitas do Dia', body,
+    `<button class="btn btn-primary" onclick="document.getElementById('ag-data').value='${ds}';populateAgendarSelects();closeModal('m-detalhe');openModal('m-agendar')">+ Agendar nesta data</button>`);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   VISITAS
+═══════════════════════════════════════════════════════════════ */
+function renderVisitas() {
+  const role=state.currentUser.role;
+  const search=(document.getElementById('v-search')?.value||'').toLowerCase();
+  let data=DB.visitas.filter(v=>{
+    if(state.visitaFilter!=='todas'&&v.status!==state.visitaFilter) return false;
+    if(role==='cliente'&&v.cliente!==state.currentUser.nome) return false;
+    if(role==='corretor' && v.corretor!==state.currentUser.nome) return false;
+    if(role==='gerente' && !isMyCorretor(v.corretor)) return false;
+    if(search&&!v.imovel.toLowerCase().includes(search)&&!v.cliente.toLowerCase().includes(search)) return false;
+    return true;
+  });
+  document.getElementById('visitas-tbody').innerHTML=data.map(v=>`
+    <tr>
+      <td class="cell-main">${v.imovel}</td>
+      <td>${v.cliente}</td>
+      <td>${v.corretor}</td>
+      <td>${fmt(v.data)}</td>
+      <td>${v.hora}</td>
+      <td><span style="font-size:.75rem;color:var(--text3)">${v.tipo}</span></td>
+      <td>${badge(v.status)}</td>
+      <td>
+        <div class="td-actions">
+          <button class="icon-btn" onclick="openDetalheVisita(${v.id})" title="Ver">👁</button>
+          ${v.status!=='cancelado'&&v.status!=='realizado'?`<button class="icon-btn amber" onclick="openReagendar(${v.id})" title="Reagendar">🔄</button>`:''}
+          ${v.status==='agendado'?`<button class="icon-btn green" onclick="confirmarVisita(${v.id})" title="Confirmar">✅</button>`:''}
+          ${v.status==='confirmado'&&role!=='cliente'?`<button class="icon-btn" onclick="realizarVisita(${v.id})" title="Marcar Realizada" style="color:var(--amber)">🏠</button>`:''}
+          <button class="icon-btn" onclick="sendWaVisita(${v.id})" title="Enviar WhatsApp" style="color:#25D366">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+          </button>
+          ${v.status!=='cancelado'&&v.status!=='realizado'?`<button class="icon-btn red" onclick="cancelarVisita(${v.id})" title="Cancelar">✕</button>`:''}
+          ${v.status==='realizado'&&!v.avaliado?`<button class="icon-btn" onclick="openAvaliar(${v.id})" title="Avaliar" style="color:#facc15">⭐</button>`:''}
+        </div>
+      </td>
+    </tr>`).join('')||`<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text3)">Nenhuma visita encontrada</td></tr>`;
+  refreshNavBadges();
+}
+function setVisitaFilter(f,btn){ state.visitaFilter=f; btn.parentElement.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); btn.classList.add('active'); renderVisitas(); }
+function confirmarVisita(id){ const v=DB.visitas.find(x=>x.id===id); v.status='confirmado'; renderVisitas(); showToast('Visita confirmada! WhatsApp enviado ✓','success'); }
+function cancelarVisita(id){
+  if(!confirm('Cancelar esta visita?')) return;
+  const v = DB.visitas.find(x=>x.id===id);
+  v.status = 'cancelado';
+  syncToFirebase('visitas');
+  // Remove from kanban pipeline
+  ['lead','visita_agendada','visita_realizada','proposta'].forEach(col => {
+    DB.kanban[col] = (DB.kanban[col]||[]).filter(k =>
+      !(k.titulo===v.cliente && k.sub.includes(v.imovel.split(' ')[0]))
+    );
+  });
+  renderVisitas();
+  syncToFirebase('kanban');
+  if(state.currentPage==='funil') renderKanban();
+  showToast('Visita cancelada','info');
+}
+function realizarVisita(id){ DB.visitas.find(x=>x.id===id).status='realizado'; // Advance in kanban: move from visita_agendada → visita_realizada
+  const rv = DB.visitas.find(x=>x.id===id);
+  const kaIdx = (DB.kanban.visita_agendada||[]).findIndex(k=>
+    k.titulo===rv.cliente && k.sub.includes(rv.imovel.split(' ')[0])
   );
-});
+  if(kaIdx>-1){
+    const [kcard] = DB.kanban.visita_agendada.splice(kaIdx,1);
+    kcard.tag = '⭐ Realizada';
+    DB.kanban.visita_realizada = DB.kanban.visita_realizada||[];
+    DB.kanban.visita_realizada.push(kcard);
+  }
+  if(state.currentPage==='funil') renderKanban();
+  renderVisitas(); showToast('Visita marcada como realizada!','success'); setTimeout(()=>openAvaliar(id),800); }
+function openDetalheVisita(id) {
+  const v=DB.visitas.find(x=>x.id===id);
+  const body=`
+    <div class="hist-wrap" style="margin-bottom:20px">
+      <div class="hist-item"><div class="hist-dot green"></div><div class="hist-time">Criação</div><div class="hist-card"><div class="hist-title">Visita agendada</div><div class="hist-desc">${v.imovel}</div></div></div>
+      ${v.status==='confirmado'||v.status==='realizado'?`<div class="hist-item"><div class="hist-dot amber"></div><div class="hist-time">Confirmação</div><div class="hist-card"><div class="hist-title">Visita confirmada pelo cliente</div></div></div>`:''}
+      ${v.status==='realizado'?`<div class="hist-item"><div class="hist-dot green"></div><div class="hist-time">Conclusão</div><div class="hist-card"><div class="hist-title">Visita realizada</div></div></div>`:''}
+      ${v.status==='cancelado'?`<div class="hist-item"><div class="hist-dot red"></div><div class="hist-time">Cancelamento</div><div class="hist-card"><div class="hist-title">Visita cancelada</div><div class="hist-desc">${v.obs}</div></div></div>`:''}
+    </div>
+    ${[['Imóvel',v.imovel],['Cliente',v.cliente],['Corretor',v.corretor],['Data',fmt(v.data)],['Horário',v.hora],['Tipo',v.tipo],['Status',badge(v.status)]].map(([k,val])=>`
+    <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;font-weight:700">${k}</span>
+      <span style="font-size:.82rem">${val}</span>
+    </div>`).join('')}
+    ${v.obs?`<div style="margin-top:12px;font-size:.78rem;color:var(--text3)"><strong>Obs:</strong> ${v.obs}</div>`:''}`;
+  let footer=`<button class="btn btn-ghost" onclick="closeModal('m-detalhe')">Fechar</button>`;
+  if(v.status!=='cancelado'&&v.status!=='realizado') footer+=`<button class="btn btn-ghost" onclick="closeModal('m-detalhe');openReagendar(${v.id})">🔄 Reagendar</button>`;
+  if(v.status==='realizado'&&!v.avaliado) footer+=`<button class="btn btn-primary" onclick="closeModal('m-detalhe');openAvaliar(${v.id})">⭐ Avaliar</button>`;
+  openDetalheGenerico('Detalhes da Visita',body,footer,'🔎');
+}
+function openReagendar(id){
+  const v=DB.visitas.find(x=>x.id===id);
+  document.getElementById('reag-info').textContent=`${v.imovel} – ${fmt(v.data)} ${v.hora}`;
+  document.getElementById('reag-data').value=v.data;
+  document.getElementById('reag-hora').value=v.hora;
+  state.reagendarId=id;
+  openModal('m-reagendar');
+}
+function reagendar(){
+  const v=DB.visitas.find(x=>x.id===state.reagendarId);
+  const d=document.getElementById('reag-data').value;
+  const h=document.getElementById('reag-hora').value;
+  if(!d||!h){showToast('Preencha data e horário','error');return;}
+  v.data=d; v.hora=h; v.status='agendado';
+  v.motivo=document.getElementById('reag-motivo').value;
+  v.obs=(document.getElementById('reag-obs').value||v.obs||'');
+  closeModal('m-reagendar');
+  syncToFirebase('visitas');
+  showToast('Visita reagendada! ✓','success');
+  renderVisitas(); renderKanban();
+  if(state.currentPage==='dashboard'||state.currentPage==='dashboard-cliente') {
+    state.currentPage==='dashboard-cliente'?renderDashboardCliente():renderDashboard();
+  }
+}
 
-self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+/* ═══════════════════════════════════════════════════════════════
+   AGENDAR
+═══════════════════════════════════════════════════════════════ */
+function populateAgendarSelects() {
+  const role=state.currentUser.role;
+  const sel=(id,arr)=>{ const el=document.getElementById(id); const cur=el.value; el.innerHTML=`<option value="">Selecione...</option>`+arr.map(v=>`<option value="${v}">${v}</option>`).join(''); if(cur) el.value=cur; };
+  sel('ag-imovel',DB.imoveis.filter(i=>i.status!=='vendido').map(i=>i.titulo));
+  sel('ag-cliente',DB.clientes.map(c=>c.nome));
+  sel('ag-corretor',DB.corretores.map(c=>c.nome));
+  if(role==='corretor') document.getElementById('ag-corretor').value=state.currentUser.nome;
+  if(role==='gerente') {
+    const sel = document.getElementById('ag-corretor');
+    const myCorrs = myCorretoresNomes();
+    // filter the corretor select to only show this gerente's corretores
+    Array.from(sel.options).forEach(opt => {
+      opt.style.display = (!opt.value || myCorrs.includes(opt.value)) ? '' : 'none';
+    });
+    if(myCorrs.length) sel.value = myCorrs[0];
+  }
+  if(role==='cliente') document.getElementById('ag-cliente').value=state.currentUser.nome;
+  if(!document.getElementById('ag-data').value) document.getElementById('ag-data').value=new Date().toISOString().split('T')[0];
+  updateWaPreview();
+
+  ['ag-imovel','ag-cliente','ag-data','ag-hora'].forEach(id=>{
+    document.getElementById(id).addEventListener('change',updateWaPreview);
+  });
+}
+function updateWaPreview(){
+  const im=document.getElementById('ag-imovel').value;
+  const cl=document.getElementById('ag-cliente').value;
+  const dt=document.getElementById('ag-data').value;
+  const hr=document.getElementById('ag-hora').value;
+  const banner=document.getElementById('ag-wa-preview');
+  if(im&&cl&&dt&&hr){
+    banner.style.display='flex';
+    document.getElementById('ag-wa-text').textContent=`WhatsApp para ${cl}: "Visita ao ${im} em ${fmt(dt)} às ${hr}"`;
+  } else { banner.style.display='none'; }
+}
+function agendarVisita(){
+  const im=document.getElementById('ag-imovel').value;
+  const cl=document.getElementById('ag-cliente').value;
+  const cor=document.getElementById('ag-corretor').value;
+  const dt=document.getElementById('ag-data').value;
+  const hr=document.getElementById('ag-hora').value;
+  if(!im||!cl||!cor||!dt||!hr){showToast('Preencha todos os campos obrigatórios','error');return;}
+  const newId=Math.max(...DB.visitas.map(v=>v.id),0)+1;
+  const tp = document.getElementById('ag-tipo').value;
+  DB.visitas.push({id:newId,imovelId:0,imovel:im,cliente:cl,corretor:cor,data:dt,hora:hr,status:'agendado',tipo:tp,obs:document.getElementById('ag-obs').value,avaliado:false});
+
+  // Auto-sync to Kanban: add to visita_agendada if client not already in pipeline
+  const alreadyInPipeline = Object.values(DB.kanban).some(arr =>
+    arr.some(k => k.titulo === cl && k.sub.includes(im.split(' ')[0]))
   );
-});
+  if (!alreadyInPipeline) {
+    const initls = cor.split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2);
+    const im2 = DB.imoveis.find(x=>x.titulo===im);
+    DB.kanban.visita_agendada = DB.kanban.visita_agendada || [];
+    DB.kanban.visita_agendada.push({
+      id: 'k'+Date.now(),
+      titulo: cl, sub: im,
+      corretor: initls, corrNome: cor,
+      valor: im2 ? fmtMoney(im2.preco, im2.finalidade) : '—',
+      tag: tp==='Virtual' ? '📺 Virtual' : '📍 Presencial'
+    });
+  }
+  closeModal('m-agendar');
+  syncToFirebase('visitas');
+  syncToFirebase('kanban');
+  showToast(`Visita agendada! 📲 WhatsApp enviado para ${cl}`,'success');
+  if(state.currentPage==='visitas') renderVisitas();
+  else if(state.currentPage==='agenda') renderCalendar();
+  else if(state.currentPage==='dashboard') renderDashboard();
+  else if(state.currentPage==='dashboard-cliente') renderDashboardCliente();
+  else if(state.currentPage==='funil') renderKanban();
+  refreshNavBadges();
+}
 
-self.addEventListener('fetch', e => {
-  // Network-first for API calls, cache-first for assets
-  if (e.request.url.includes('firestore.googleapis.com') ||
-      e.request.url.includes('firebase')) {
-    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+/* ═══════════════════════════════════════════════════════════════
+   CLIENTES
+═══════════════════════════════════════════════════════════════ */
+function renderClientes(search='') {
+  let data=myClientes();
+  if(search) data=data.filter(c=>c.nome.toLowerCase().includes(search.toLowerCase())||c.email.toLowerCase().includes(search.toLowerCase()));
+  document.getElementById('clientes-tbody').innerHTML=data.map(c=>`
+    <tr>
+      <td><div style="display:flex;align-items:center;gap:9px">
+        <div style="width:30px;height:30px;border-radius:50%;background:var(--blue-d);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;flex-shrink:0">${initials(c.nome)}</div>
+        <span class="cell-main">${c.nome}</span>
+      </div></td>
+      <td>${c.email}</td><td>${c.tel}</td><td>${c.interesse}</td><td>${c.faixa}</td><td>${c.visitas}</td>
+      <td><div class="td-actions">
+        <button class="icon-btn amber" onclick="agendarParaCliente('${c.nome}')" title="Agendar">📅</button>
+        <button class="icon-btn" onclick="openHistoricoCliente(${c.id})" title="Histórico">📋</button>
+        <button class="icon-btn red" onclick="removeCliente(${c.id})" title="Remover">🗑</button>
+      </div></td>
+    </tr>`).join('')||`<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--text3)">Nenhum cliente encontrado</td></tr>`;
+}
+function agendarParaCliente(nome){ populateAgendarSelects(); document.getElementById('ag-cliente').value=nome; updateWaPreview(); openModal('m-agendar'); }
+function removeCliente(id){ if(!confirm('Remover cliente?')) return; DB.clientes=DB.clientes.filter(c=>c.id!==id); _deleteDoc('clientes',id); renderClientes(); showToast('Cliente removido','info'); }
+function addCliente(){
+  const nome=document.getElementById('cl-nome').value;
+  const email=document.getElementById('cl-email').value;
+  if(!nome||!email){showToast('Preencha nome e email','error');return;}
+  DB.clientes.push({id:Date.now(),nome,email,tel:document.getElementById('cl-tel').value,interesse:document.getElementById('cl-int').value,faixa:document.getElementById('cl-faixa').value,obs:document.getElementById('cl-obs').value,visitas:0});
+  closeModal('m-add-cliente');
+  syncToFirebase('clientes', DB.clientes[DB.clientes.length-1]);
+  showToast('Cliente cadastrado!','success');
+  renderClientes();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CORRETORES
+═══════════════════════════════════════════════════════════════ */
+function renderCorretores() {
+  const role = state.currentUser.role;
+  const data = myCorretores();
+  const tbody = document.getElementById('corretores-tbody');
+
+  if (role === 'admin') {
+    // Admin sees grouped by gerente
+    const gerentes = DB.users.filter(u => u.role === 'gerente');
+    const semGerente = data.filter(c => !c.gerente);
+    let html = '';
+
+    gerentes.forEach(g => {
+      const equipe = data.filter(c => c.gerente === g.nome);
+      const totalVisitas = equipe.reduce((s,c)=> s + (DB.visitas.filter(v=>v.corretor===c.nome).length), 0);
+      const totalReal = equipe.reduce((s,c)=> s + DB.visitas.filter(v=>v.corretor===c.nome&&v.status==='realizado').length, 0);
+      html += `<tr style="background:var(--bg3)">
+        <td colspan="7" style="padding:10px 16px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:28px;height:28px;border-radius:8px;background:var(--blue-d);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700">${initials(g.nome)}</div>
+            <span style="font-weight:700;color:var(--blue)">${g.nome}</span>
+            <span class="badge" style="background:var(--blue-d);color:var(--blue);font-size:.65rem">${equipe.length} corretor${equipe.length!==1?'es':''}</span>
+            <span style="font-size:.72rem;color:var(--text3);margin-left:4px">${totalVisitas} visitas · ${totalReal} realizadas</span>
+          </div>
+        </td>
+      </tr>`;
+      equipe.forEach(c => html += corrRow(c, role));
+      if(equipe.length === 0) html += `<tr><td colspan="7" style="padding:10px 32px;font-size:.78rem;color:var(--text3);font-style:italic">Nenhum corretor nesta equipe</td></tr>`;
+    });
+
+    if(semGerente.length) {
+      html += `<tr style="background:var(--bg3)"><td colspan="7" style="padding:10px 16px;font-weight:700;color:var(--text3)">⚠️ Sem gerente atribuído</td></tr>`;
+      semGerente.forEach(c => html += corrRow(c, role));
+    }
+    tbody.innerHTML = html;
+  } else {
+    tbody.innerHTML = data.map(c => corrRow(c, role)).join('');
+  }
+}
+
+function corrRow(c, role) {
+  const vCorr = DB.visitas.filter(v=>v.corretor===c.nome);
+  const real  = vCorr.filter(v=>v.status==='realizado').length;
+  const conv  = vCorr.length > 0 ? Math.round(real/vCorr.length*100) : 0;
+  return `<tr>
+    <td><div style="display:flex;align-items:center;gap:9px;padding-left:${role==='admin'?'28px':'0'}">
+      <div style="width:30px;height:30px;border-radius:50%;background:var(--amber-dim);color:var(--amber2);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700">${initials(c.nome)}</div>
+      <span class="cell-main">${c.nome}</span>
+    </div></td>
+    <td style="font-family:monospace;font-size:.78rem">${c.creci}</td>
+    <td>${role==='admin'?`<span style="color:var(--blue);font-size:.78rem">${c.gerente||'—'}</span>`:c.gerente||'—'}</td>
+    <td>${c.visitas}</td>
+    <td><span style="color:${conv>25?'var(--green)':conv>15?'var(--amber2)':'var(--red)'};font-weight:600">${conv}%</span></td>
+    <td>${badge(c.status)}</td>
+    <td><div class="td-actions">
+      <button class="icon-btn" onclick="openHistoricoCorretor(${c.id})" title="Histórico">📋</button>
+      ${role==='admin'?`<button class="icon-btn amber" onclick="openMoveCorretor(${c.id})" title="Mover para outro gerente">↔</button>`:''}
+      ${role==='admin'||role==='gerente'?`<button class="icon-btn red" onclick="removeCorretor(${c.id})" title="Remover">🗑</button>`:''}
+    </div></td>
+  </tr>`;
+}
+function openMoveCorretor(id) {
+  const corr = DB.corretores.find(c=>c.id===id);
+  document.getElementById('move-corr-id').value = id;
+  document.getElementById('move-corr-nome').textContent = corr.nome;
+  document.getElementById('move-corr-gerente-atual').textContent = corr.gerente || 'Sem gerente';
+  const sel = document.getElementById('move-corr-gerente-novo');
+  sel.innerHTML = '<option value="">Sem gerente</option>' +
+    DB.users.filter(u=>u.role==='gerente').map(u=>`<option value="${u.nome}" ${u.nome===corr.gerente?'selected':''}>${u.nome}</option>`).join('');
+  openModal('m-move-corretor');
+}
+
+function saveMoveCorretor() {
+  const id = parseInt(document.getElementById('move-corr-id').value);
+  const novo = document.getElementById('move-corr-gerente-novo').value;
+  const corr = DB.corretores.find(c=>c.id===id);
+  const old = corr.gerente;
+  corr.gerente = novo;
+  closeModal('m-move-corretor');
+  syncToFirebase('corretores');
+  renderCorretores();
+  showToast(`${corr.nome} movido${novo?` para equipe de ${novo}`+' ✓':' (sem gerente)'}`, 'success');
+}
+
+
+function addCorretor(){
+  const nome=document.getElementById('cor-nome').value;
+  const creci=document.getElementById('cor-creci').value;
+  const email=document.getElementById('cor-email').value;
+  if(!nome||!creci||!email){showToast('Preencha os campos obrigatórios','error');return;}
+  const role = state.currentUser.role;
+  // Gerente automatically becomes the manager of corretor they add
+  const gerenteVal = role==='gerente' ? state.currentUser.nome : document.getElementById('cor-ger').value;
+  DB.corretores.push({id:Date.now(),nome,email,creci,tel:document.getElementById('cor-tel').value,gerente:gerenteVal,comissao:parseFloat(document.getElementById('cor-com').value)||1,status:'ativo',visitas:0});
+  closeModal('m-add-corretor');
+  syncToFirebase('corretores', DB.corretores[DB.corretores.length-1]);
+  showToast(`Corretor ${nome} cadastrado${role==='gerente'?' na sua equipe':''}!`,'success');
+  renderCorretores();
+}
+function removeCorretor(id){ if(!confirm('Remover corretor?')) return; DB.corretores=DB.corretores.filter(c=>c.id!==id); _deleteDoc('corretores',id); renderCorretores(); showToast('Corretor removido','info'); }
+
+/* ═══════════════════════════════════════════════════════════════
+   KANBAN FUNIL
+═══════════════════════════════════════════════════════════════ */
+const KANBAN_COLS = [
+  {id:'lead',            label:'Lead',            color:'#5B9EF0', icon:'🎯'},
+  {id:'visita_agendada', label:'Visita Agendada',  color:'#A47EFA', icon:'📅'},
+  {id:'visita_realizada',label:'Visita Realizada', color:'#F5A623', icon:'✅'},
+  {id:'proposta',        label:'Proposta',         color:'#50C17A', icon:'📄'},
+  {id:'fechado',         label:'Fechado',          color:'#2ECC71', icon:'🎉'},
+];
+
+/* Drag state */
+let _kanbanDrag = { cardId: null, fromCol: null };
+
+function renderKanban() {
+  const sel = document.getElementById('funil-corretor');
+  // Populate corretor filter scoped to current user (rebuild each render)
+  const prevVal = sel.value;
+  while (sel.options.length > 1) sel.remove(1);
+  myCorretores().forEach(co => sel.add(new Option(co.nome, co.nome)));
+  if (prevVal) sel.value = prevVal;
+  const filterCorr = sel.value;
+  const filterCol  = (document.getElementById('funil-col-filter')||{}).value || '';
+  const searchQ    = (document.getElementById('kanban-search')||{}).value?.toLowerCase() || '';
+  const role = state.currentUser.role;
+  const myNome = state.currentUser.nome;
+  const board = document.getElementById('kanban-board');
+
+  // Populate col filter
+  const colSel = document.getElementById('funil-col-filter');
+  if (colSel && colSel.options.length === 1) {
+    KANBAN_COLS.forEach(c => colSel.add(new Option(c.icon+' '+c.label, c.id)));
+  }
+
+  // Stats bar
+  let totalCards = 0, totalValor = 0;
+  Object.values(DB.kanban).forEach(arr => arr.forEach(k => {
+    totalCards++;
+    totalValor += parseFloat((k.valor||'0').replace(/[^\d,.MkK]/g,'')
+      .replace(',','.')
+      .replace(/k$/i, 'e3').replace(/M$/i, 'e6'))||0;
+  }));
+  const fechados = (DB.kanban.fechado||[]).length;
+  const statsEl = document.getElementById('kanban-stats');
+  if (statsEl) statsEl.innerHTML = [
+    {label:'Total leads', val: totalCards, color:'var(--blue)'},
+    {label:'Em proposta', val: (DB.kanban.proposta||[]).length, color:'var(--green)'},
+    {label:'Fechados',    val: fechados,    color:'#2ECC71'},
+    {label:'VGV estimado',val: totalValor>=1e6 ? 'R$ '+(totalValor/1e6).toFixed(1)+'M' : totalValor>=1e3 ? 'R$ '+(totalValor/1e3).toFixed(0)+'k' : '—', color:'var(--amber2)'},
+  ].map(s=>`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:2px;flex:1;min-width:100px">
+    <div style="font-size:1.1rem;font-weight:700;color:${s.color}">${s.val}</div>
+    <div style="font-size:.68rem;color:var(--text3)">${s.label}</div>
+  </div>`).join('');
+
+  board.innerHTML = KANBAN_COLS.map((col, colIdx) => {
+    if (filterCol && col.id !== filterCol) return '';
+    let cards = (DB.kanban[col.id] || []).slice();
+
+    // Scope filter
+    if (role === 'corretor') {
+      cards = cards.filter(k => k.corrNome === myNome || k.corretor === myNome ||
+        myNome.split(' ').map(w=>w[0]).join('') === k.corretor);
+    } else if (role === 'gerente') {
+      const nomes = myCorretoresNomes();
+      cards = cards.filter(k => nomes.includes(k.corrNome) || nomes.some(n => n.startsWith(k.corretor) || k.corretor === n.split(' ').map(w=>w[0]).join('')));
+    }
+    // Corretor filter from select
+    if (filterCorr) {
+      cards = cards.filter(k => k.corrNome === filterCorr ||
+        filterCorr.split(' ').map(w=>w[0]).join('') === k.corretor);
+    }
+    // Search filter
+    if (searchQ) {
+      cards = cards.filter(k =>
+        k.titulo.toLowerCase().includes(searchQ) ||
+        k.sub.toLowerCase().includes(searchQ) ||
+        (k.corrNome||'').toLowerCase().includes(searchQ)
+      );
+    }
+
+    const prevCol = colIdx > 0 ? KANBAN_COLS[colIdx-1] : null;
+    const nextCol = colIdx < KANBAN_COLS.length-1 ? KANBAN_COLS[colIdx+1] : null;
+
+    return `<div class="kanban-col" id="kcol-${col.id}"
+        ondragover="kanbanDragOver(event,'${col.id}')"
+        ondragleave="kanbanDragLeave(event,'${col.id}')"
+        ondrop="kanbanDrop(event,'${col.id}')">
+      <div class="kanban-col-header">
+        <span class="kanban-col-title" style="color:${col.color}">${col.icon} ${col.label}</span>
+        <span class="kanban-count" style="background:${col.color}22;color:${col.color}">${cards.length}</span>
+      </div>
+      ${cards.length?`<div style="font-size:.65rem;color:var(--text3);margin-bottom:8px;margin-top:-4px">
+        ${cards.reduce((s,k)=>s+(parseFloat((k.valor||'0').replace(/[^\d.MkK]/g,'').replace(/k$/i,'e3').replace(/M$/i,'e6'))||0),0) > 0
+          ? (() => { const t=cards.reduce((s,k)=>s+(parseFloat((k.valor||'0').replace(/[^\d.MkK]/g,'').replace(/k$/i,'e3').replace(/M$/i,'e6'))||0),0); return t>=1e6?'R$ '+(t/1e6).toFixed(1)+'M':t>=1e3?'R$ '+(t/1e3).toFixed(0)+'k':'—'; })()
+          : '—'} em carteira
+      </div>`:''  }
+      ${cards.map(k => {
+        const prev = prevCol ? `<button class="mv-prev" onclick="moveKanbanCard('${k.id}','${col.id}','${prevCol.id}',event)" title="Voltar para ${prevCol.label}">◀ ${prevCol.icon}</button>` : '';
+        const next = nextCol ? `<button class="mv-next" onclick="moveKanbanCard('${k.id}','${col.id}','${nextCol.id}',event)" title="Avançar para ${nextCol.label}">${nextCol.icon} ▶</button>` : '';
+        return `<div class="kanban-card" draggable="true"
+            ondragstart="kanbanDragStart(event,'${k.id}','${col.id}')"
+            ondragend="kanbanDragEnd(event)"
+            onclick="openKanbanCard('${k.id}','${col.id}')">
+          <div class="kanban-card-title">${k.titulo}</div>
+          <div class="kanban-card-sub">🏢 ${k.sub}</div>
+          <div class="kanban-card-footer" onclick="event.stopPropagation()">
+            <span class="badge" style="background:${col.color}22;color:${col.color}">${k.tag}</span>
+            <span class="kanban-avatar" style="background:var(--amber-dim);color:var(--amber2)" title="${k.corrNome||k.corretor}">${k.corretor}</span>
+          </div>
+          <div style="font-size:.72rem;color:var(--amber2);font-weight:700;margin-top:5px">${k.valor}</div>
+          ${(prev||next)?`<div class="kanban-card-move" onclick="event.stopPropagation()">${prev}${next}</div>`:''}
+        </div>`;
+      }).join('')}
+      <button class="kanban-col-add" onclick="openAddKanbanCard('${col.id}')">＋ Adicionar</button>
+    </div>`;
+  }).join('');
+}
+
+/* ── Kanban drag-drop ── */
+function kanbanDragStart(e, cardId, fromCol) {
+  _kanbanDrag = { cardId, fromCol };
+  e.dataTransfer.effectAllowed = 'move';
+  e.target.classList.add('dragging');
+  setTimeout(() => e.target.classList.add('dragging'), 0);
+}
+function kanbanDragEnd(e) {
+  e.target.classList.remove('dragging');
+  document.querySelectorAll('.kanban-col').forEach(el => el.classList.remove('drag-over-active'));
+}
+function kanbanDragOver(e, colId) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.kanban-col').forEach(el => el.classList.remove('drag-over-active'));
+  document.getElementById('kcol-' + colId)?.classList.add('drag-over-active');
+}
+function kanbanDragLeave(e, colId) {
+  if (!e.currentTarget.contains(e.relatedTarget)) {
+    document.getElementById('kcol-' + colId)?.classList.remove('drag-over-active');
+  }
+}
+function kanbanDrop(e, toColId) {
+  e.preventDefault();
+  document.querySelectorAll('.kanban-col').forEach(el => el.classList.remove('drag-over-active'));
+  const { cardId, fromCol } = _kanbanDrag;
+  if (!cardId || fromCol === toColId) return;
+  moveKanbanCard(cardId, fromCol, toColId);
+}
+
+/* ── Move card between columns ── */
+function moveKanbanCard(cardId, fromColId, toColId, e) {
+  if (e) e.stopPropagation();
+  const fromArr = DB.kanban[fromColId] || [];
+  const idx = fromArr.findIndex(k => k.id === cardId);
+  if (idx === -1) return;
+  const [card] = fromArr.splice(idx, 1);
+  // Update tag to reflect new stage
+  const toCol = KANBAN_COLS.find(c => c.id === toColId);
+  if (toColId === 'fechado') card.tag = '✅ Fechado';
+  else if (toColId === 'proposta') card.tag = '📄 Em negociação';
+  else if (toColId === 'visita_realizada') card.tag = '⭐ Realizada';
+  else if (toColId === 'visita_agendada') card.tag = '📅 Agendada';
+  else if (toColId === 'lead') card.tag = '🎯 Lead';
+  DB.kanban[toColId] = DB.kanban[toColId] || [];
+  DB.kanban[toColId].push(card);
+  syncToFirebase('kanban');
+  renderKanban();
+  showToast(`${card.titulo} → ${toCol.label}`, 'success');
+}
+
+/* ── Open card detail ── */
+function openKanbanCard(cardId, colId) {
+  let card = null, col = null;
+  for (const c of KANBAN_COLS) {
+    const found = (DB.kanban[c.id]||[]).find(k => k.id === cardId);
+    if (found) { card = found; col = c; break; }
+  }
+  if (!card) return;
+  const colIdx = KANBAN_COLS.indexOf(col);
+  const steps = KANBAN_COLS.map((c, i) =>
+    `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
+      <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;
+        background:${i<colIdx?'var(--green)':i===colIdx?c.color:'var(--bg4)'};
+        color:${i<=colIdx?'#000':'var(--text3)'};font-weight:700;border:2px solid ${i===colIdx?c.color:'transparent'}">${i<colIdx?'✓':c.icon}</div>
+      <div style="font-size:.58rem;color:${i===colIdx?c.color:'var(--text3)'};text-align:center;font-weight:${i===colIdx?700:400}">${c.label}</div>
+    </div>` +
+    (i < KANBAN_COLS.length-1 ? `<div style="flex:0 0 20px;height:2px;background:${i<colIdx?'var(--green)':'var(--border)'};margin-top:13px;align-self:flex-start"></div>` : '')
+  ).join('');
+
+  document.getElementById('info-modal-title').textContent = card.titulo;
+  document.getElementById('info-modal-body').innerHTML = `
+    <!-- Pipeline progress -->
+    <div style="display:flex;align-items:flex-start;margin-bottom:20px;overflow-x:auto;padding:4px 0">${steps}</div>
+
+    <!-- Card info -->
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+      <div style="font-size:.88rem;font-weight:700;margin-bottom:8px">🏢 ${card.sub}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:.78rem">
+        <div><span style="color:var(--text3)">Valor</span><div style="font-weight:700;color:var(--amber2);font-size:.95rem">${card.valor}</div></div>
+        <div><span style="color:var(--text3)">Corretor</span><div style="font-weight:600">${card.corrNome||card.corretor}</div></div>
+        <div><span style="color:var(--text3)">Etapa atual</span><div style="font-weight:600;color:${col.color}">${col.icon} ${col.label}</div></div>
+        <div><span style="color:var(--text3)">Tag</span><div>${card.tag}</div></div>
+      </div>
+    </div>
+
+    <!-- Move actions -->
+    <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px">Mover para</div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap">
+      ${KANBAN_COLS.filter(c => c.id !== col.id).map(c =>
+        `<button class="btn btn-ghost btn-sm" onclick="moveKanbanCard('${card.id}','${col.id}','${c.id}');closeModal('m-info')"
+          style="flex:1;min-width:100px">${c.icon} ${c.label}</button>`
+      ).join('')}
+    </div>`;
+  openModal('m-info');
+}
+
+/* ── Add new card ── */
+function openAddKanbanCard(colId) {
+  const col = KANBAN_COLS.find(c => c.id === colId);
+  document.getElementById('info-modal-title').textContent = `Novo card — ${col.icon} ${col.label}`;
+  const corrOpts = myCorretores().map(c =>
+    `<option value="${c.nome}">${c.nome}</option>`).join('');
+  document.getElementById('info-modal-body').innerHTML = `
+    <div class="fg"><label class="fl">Cliente / Lead *</label>
+      <input class="fi" id="nk-titulo" placeholder="Nome do cliente ou lead"></div>
+    <div class="fg"><label class="fl">Imóvel *</label>
+      <input class="fi" id="nk-sub" placeholder="Ex: Apto 3Q – Vila Madalena"></div>
+    <div class="fg-row c2">
+      <div class="fg"><label class="fl">Valor estimado</label>
+        <input class="fi" id="nk-valor" placeholder="R$ 850k"></div>
+      <div class="fg"><label class="fl">Corretor</label>
+        <select class="fs" id="nk-corretor">${corrOpts}</select></div>
+    </div>
+    <div class="fg"><label class="fl">Observação</label>
+      <input class="fi" id="nk-tag" placeholder="Ex: Indicação, Site, WhatsApp..."></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('m-info')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" onclick="saveNewKanbanCard('${colId}')">✅ Adicionar</button>
+    </div>`;
+  openModal('m-info');
+}
+
+function saveNewKanbanCard(colId) {
+  const titulo = document.getElementById('nk-titulo').value.trim();
+  const sub    = document.getElementById('nk-sub').value.trim();
+  const valor  = document.getElementById('nk-valor').value.trim() || '—';
+  const corrNome = document.getElementById('nk-corretor').value;
+  const tag    = document.getElementById('nk-tag').value.trim() || 'Novo';
+  if (!titulo || !sub) { showToast('Preencha cliente e imóvel', 'error'); return; }
+  const id = 'k' + Date.now();
+  const initls = corrNome.split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2);
+  DB.kanban[colId] = DB.kanban[colId] || [];
+  DB.kanban[colId].push({ id, titulo, sub, corretor: initls, corrNome, valor, tag });
+  closeModal('m-info');
+  syncToFirebase('kanban');
+  renderKanban();
+  showToast(`Card adicionado em ${KANBAN_COLS.find(c=>c.id===colId).label}`, 'success');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CHAT
+═══════════════════════════════════════════════════════════════ */
+const CHAT_CONTACTS = [
+  {id:1,name:'Fernando Alves',role:'cliente',preview:'Até amanhã então 👍',unread:0},
+  {id:2,name:'Beatriz Santos',role:'cliente',preview:'Claro, sintam-se à vontade!',unread:0},
+  {id:3,name:'Ricardo Costa',role:'corretor',preview:'O condomínio é R$ 850/mês...',unread:2},
+];
+
+function renderChat() {
+  document.getElementById('chat-contacts').innerHTML=CHAT_CONTACTS.map(c=>`
+    <div class="chat-contact ${c.id===state.activeChatId?'active':''}" onclick="openChat(${c.id})">
+      <div style="width:34px;height:34px;border-radius:50%;background:${roleBg(c.role)};color:${roleColor(c.role)};display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0">${initials(c.name)}</div>
+      <div class="chat-contact-info">
+        <div class="chat-contact-name">${c.name}</div>
+        <div class="chat-contact-preview">${c.preview}</div>
+      </div>
+      ${c.unread>0?`<span class="chat-unread">${c.unread}</span>`:''}
+    </div>`).join('');
+  openChat(state.activeChatId);
+}
+
+function openChat(id) {
+  state.activeChatId=id;
+  const c=CHAT_CONTACTS.find(x=>x.id===id);
+  const msgs=DB.chat[id]||[];
+  c.unread=0;
+  document.getElementById('chat-ava').textContent=initials(c.name);
+  document.getElementById('chat-ava').style.background=roleBg(c.role);
+  document.getElementById('chat-ava').style.color=roleColor(c.role);
+  document.getElementById('chat-name').textContent=c.name;
+  document.getElementById('chat-status').textContent='● Online agora';
+  document.getElementById('chat-messages').innerHTML=msgs.map(m=>`
+    <div class="chat-msg ${m.from==='corretor'?'mine':'theirs'}">
+      <div class="chat-bubble">${m.text}</div>
+      <div class="chat-time">${m.time}</div>
+    </div>`).join('');
+  // scroll to bottom
+  const msgsEl=document.getElementById('chat-messages');
+  setTimeout(()=>msgsEl.scrollTop=msgsEl.scrollHeight,50);
+  // re-render contacts to clear unread
+  document.querySelectorAll('.chat-contact').forEach((el,i)=>{ const ci=CHAT_CONTACTS[i]; el.className='chat-contact'+(ci.id===id?' active':''); const u=el.querySelector('.chat-unread'); if(u) u.remove(); });
+}
+
+function sendMsg() {
+  const inp=document.getElementById('chat-input');
+  const text=inp.value.trim();
+  if(!text) return;
+  if(!DB.chat[state.activeChatId]) DB.chat[state.activeChatId]=[];
+  const now=new Date();
+  DB.chat[state.activeChatId].push({from:'corretor',text,time:`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`});
+  inp.value='';
+  const msgsEl=document.getElementById('chat-messages');
+  const div=document.createElement('div');
+  div.className='chat-msg mine';
+  div.innerHTML=`<div class="chat-bubble">${text}</div><div class="chat-time">${DB.chat[state.activeChatId].slice(-1)[0].time}</div>`;
+  msgsEl.appendChild(div);
+  msgsEl.scrollTop=msgsEl.scrollHeight;
+  // auto reply
+  setTimeout(()=>{
+    const replies=['Entendido! ✓','Obrigado pela informação!','Claro, sem problema!','Ok, combinado! 😊','Que ótimo, obrigado!'];
+    const r=replies[Math.floor(Math.random()*replies.length)];
+    DB.chat[state.activeChatId].push({from:'cliente',text:r,time:DB.chat[state.activeChatId].slice(-1)[0].time});
+    const div2=document.createElement('div');
+    div2.className='chat-msg theirs';
+    div2.innerHTML=`<div class="chat-bubble">${r}</div><div class="chat-time">${DB.chat[state.activeChatId].slice(-1)[0].time}</div>`;
+    msgsEl.appendChild(div2);
+    msgsEl.scrollTop=msgsEl.scrollHeight;
+  },1000+Math.random()*1000);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MAPA
+═══════════════════════════════════════════════════════════════ */
+function renderMap() {
+  const tipo=document.getElementById('map-f-tipo').value;
+  const status=document.getElementById('map-f-status').value;
+  let data=myImoveis().filter(i=>{
+    if(tipo&&i.tipo!==tipo) return false;
+    if(status&&i.status!==status) return false;
+    return true;
+  });
+
+  // draw fake streets
+  const svg=document.getElementById('map-svg');
+  svg.innerHTML=`
+    <line x1="0" y1="150" x2="900" y2="150" stroke="#ffffff08" stroke-width="10"/>
+    <line x1="0" y1="280" x2="900" y2="280" stroke="#ffffff06" stroke-width="8"/>
+    <line x1="200" y1="0" x2="200" y2="400" stroke="#ffffff06" stroke-width="8"/>
+    <line x1="500" y1="0" x2="500" y2="400" stroke="#ffffff06" stroke-width="8"/>
+    <line x1="750" y1="0" x2="750" y2="400" stroke="#ffffff04" stroke-width="6"/>
+    <path d="M0,50 Q200,100 400,80 T900,60" stroke="#ffffff05" stroke-width="8" fill="none"/>`;
+
+  const statusColors={disponivel:'#50C17A',reservado:'#D4973A',vendido:'#E05555'};
+  document.getElementById('map-pins').innerHTML=data.map(im=>`
+    <div class="map-pin" style="left:${im.lng}%;top:${im.lat}%">
+      <div class="map-pin-icon" style="background:${statusColors[im.status]||'#888'}">
+        <span class="map-pin-emoji">${TIPO_EMOJI[im.tipo]||'🏠'}</span>
+      </div>
+      <div class="map-tooltip">
+        <div style="font-weight:700;font-size:.8rem;margin-bottom:3px">${im.titulo}</div>
+        <div style="font-size:.72rem;color:var(--text3);margin-bottom:5px">📍 ${im.bairro}</div>
+        <div style="font-size:.82rem;font-weight:700;color:var(--amber2)">${fmtMoney(im.preco,im.finalidade)}</div>
+        <div style="margin-top:5px">${badge(im.status)}</div>
+      </div>
+    </div>`).join('');
+
+  // list below
+  document.getElementById('map-list-props').innerHTML=data.slice(0,4).map(im=>`
+    <div class="prop-card" style="cursor:default">
+      <div class="prop-img" style="height:100px"><span>${TIPO_EMOJI[im.tipo]||'🏠'}</span><div class="prop-img-overlay"></div><div class="prop-img-badge">${badge(im.status)}</div></div>
+      <div class="prop-body">
+        <div class="prop-title">${im.titulo}</div>
+        <div class="prop-addr">📍 ${im.bairro}</div>
+        <div class="prop-price">${fmtMoney(im.preco,im.finalidade)}</div>
+      </div>
+      <div class="prop-foot"><button class="btn btn-primary btn-sm" style="flex:1" onclick="agendarParaImovel(${im.id})">📅 Agendar</button></div>
+    </div>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AVALIAÇÕES
+═══════════════════════════════════════════════════════════════ */
+let chartAval=null;
+function renderAvaliacoes() {
+  const avs = myAvaliacoes();
+  const avg=(arr)=>arr.length?arr.reduce((s,v)=>s+v,0)/arr.length:0;
+  const avgAtend=avg(avs.map(a=>a.notaAtend));
+  const avgImovel=avg(avs.map(a=>a.notaImovel));
+  const avgGeral=avg(avs.map(a=>(a.notaAtend+a.notaImovel)/2));
+
+  document.getElementById('aval-stats').innerHTML=[
+    {icon:'⭐',val:avgGeral.toFixed(1),lbl:'Avaliação Geral',color:DB.company.color},
+    {icon:'🏅',val:avgAtend.toFixed(1),lbl:'Atendimento Médio',color:'#5B9EF0'},
+    {icon:'🏢',val:avgImovel.toFixed(1),lbl:'Qualidade dos Imóveis',color:'#50C17A'},
+    {icon:'💬',val:avs.length,lbl:'Total de Avaliações',color:'#A47EFA'},
+  ].map(s=>`<div class="stat-card"><div class="stat-stripe" style="background:${s.color}"></div><div class="stat-icon">${s.icon}</div><div class="stat-val" style="color:${s.color}">${s.val}</div><div class="stat-lbl">${s.lbl}</div></div>`).join('');
+
+  document.getElementById('aval-list').innerHTML=avs.map(a=>`
+    <div style="padding:14px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div>
+          <span style="font-weight:600;font-size:.85rem">${a.cliente}</span>
+          <span style="color:var(--text3);font-size:.75rem"> sobre ${a.imovel}</span>
+        </div>
+        <div style="display:flex;gap:2px">${'⭐'.repeat(Math.round((a.notaAtend+a.notaImovel)/2))}</div>
+      </div>
+      <div style="font-size:.78rem;color:var(--text2);margin-bottom:4px">"${a.comentario}"</div>
+      <div style="font-size:.7rem;color:var(--text3)">Corretor: ${a.corretor} · ${fmt(a.data)} · <span style="color:${a.interesse==='alto'?'var(--green)':a.interesse==='medio'?'var(--amber2)':'var(--red)'}">${a.interesse==='alto'?'🔥 Alto interesse':a.interesse==='medio'?'🤔 Médio':'👎 Sem interesse'}</span></div>
+    </div>`).join('')||'<div style="text-align:center;padding:28px;color:var(--text3)">Nenhuma avaliação ainda</div>';
+
+  const ctx=document.getElementById('chart-aval').getContext('2d');
+  if(chartAval) chartAval.destroy();
+  const dist=[0,0,0,0,0];
+  avs.forEach(a=>{ const n=Math.round((a.notaAtend+a.notaImovel)/2); if(n>=1&&n<=5) dist[n-1]++; });
+  chartAval=new Chart(ctx,{type:'bar',data:{labels:['1★','2★','3★','4★','5★'],datasets:[{data:dist,backgroundColor:[hexToRgba(DB.company.color,.7)],borderColor:DB.company.color,borderWidth:2,borderRadius:6}]},options:{plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#666'}},y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#666',stepSize:1}}},responsive:true}});
+}
+
+function openAvaliar(visitaId) {
+  const v=DB.visitas.find(x=>x.id===visitaId);
+  state.avaliandoVisitaId=visitaId;
+  state.starsRating={atend:0,imovel:0};
+  state.interesseAval='';
+  document.getElementById('aval-imovel-name').textContent=v.imovel;
+  document.getElementById('aval-corretor-name').textContent=`Corretor: ${v.corretor}`;
+  document.getElementById('aval-comment').value='';
+  renderStars('stars-atend','atend');
+  renderStars('stars-imovel','imovel');
+  ['aval-int-alto','aval-int-medio','aval-int-baixo'].forEach(id=>{ const b=document.getElementById(id); b.classList.remove('btn-primary'); b.classList.add('btn-ghost'); });
+  openModal('m-avaliar');
+}
+function renderStars(containerId, key) {
+  const n=state.starsRating[key];
+  document.getElementById(containerId).innerHTML=[1,2,3,4,5].map(i=>`<span class="star ${i<=n?'lit':''}" onclick="setStar('${key}',${i},'${containerId}')">${i<=n?'★':'☆'}</span>`).join('');
+}
+function setStar(key,n,cId) { state.starsRating[key]=n; renderStars(cId,key); }
+function setInteresse(v,btn) {
+  state.interesseAval=v;
+  ['aval-int-alto','aval-int-medio','aval-int-baixo'].forEach(id=>{ const b=document.getElementById(id); b.classList.remove('btn-primary'); b.classList.add('btn-ghost'); });
+  btn.classList.add('btn-primary'); btn.classList.remove('btn-ghost');
+}
+function submitAval() {
+  if(!state.starsRating.atend||!state.starsRating.imovel){showToast('Dê uma nota para atendimento e imóvel','error');return;}
+  const v=DB.visitas.find(x=>x.id===state.avaliandoVisitaId);
+  DB.avaliacoes.push({id:Date.now(),visitaId:state.avaliandoVisitaId,imovel:v.imovel,corretor:v.corretor,cliente:v.cliente,notaAtend:state.starsRating.atend,notaImovel:state.starsRating.imovel,comentario:document.getElementById('aval-comment').value||'Sem comentário.',interesse:state.interesseAval,data:new Date().toISOString().split('T')[0]});
+  v.avaliado=true;
+  closeModal('m-avaliar');
+  syncToFirebase('avaliacoes');
+  syncToFirebase('visitas');
+  showToast('Avaliação enviada! Obrigado pelo feedback ⭐','success');
+  if(state.currentPage==='visitas') renderVisitas();
+  if(state.currentPage==='avaliacoes') renderAvaliacoes();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RELATÓRIOS
+═══════════════════════════════════════════════════════════════ */
+let chartCorBar=null, chartConv=null;
+function renderRelatorios() {
+  document.getElementById('rel-stats').innerHTML=[
+    {icon:'📅',val:DB.visitas.length,lbl:'Total de Visitas',color:DB.company.color},
+    {icon:'✅',val:DB.visitas.filter(v=>v.status==='realizado').length,lbl:'Realizadas',color:'#50C17A'},
+    {icon:'📈',val:Math.round(DB.visitas.filter(v=>v.status==='realizado').length/Math.max(DB.visitas.length,1)*100)+'%',lbl:'Taxa de Realização',color:'#5B9EF0'},
+    {icon:'⭐',val:DB.avaliacoes.length>0?(DB.avaliacoes.reduce((s,a)=>(s+(a.notaAtend+a.notaImovel)/2),0)/DB.avaliacoes.length).toFixed(1):'-',lbl:'Avaliação Média',color:'#A47EFA'},
+  ].map(s=>`<div class="stat-card"><div class="stat-stripe" style="background:${s.color}"></div><div class="stat-icon">${s.icon}</div><div class="stat-val" style="color:${s.color}">${s.val}</div><div class="stat-lbl">${s.lbl}</div></div>`).join('');
+
+  document.getElementById('rel-imoveis').innerHTML=myImoveis().sort((a,b)=>b.visitas-a.visitas).map(im=>{
+    const avg=DB.avaliacoes.filter(a=>a.imovel===im.titulo);
+    const nota=avg.length?(avg.reduce((s,a)=>(s+(a.notaAtend+a.notaImovel)/2),0)/avg.length).toFixed(1):'—';
+    return `<tr><td class="cell-main">${im.titulo}</td><td>${im.tipo}</td><td>${im.visitas}</td><td>${Math.round(im.visitas*.4)}</td><td>${nota!=='—'?'⭐ '+nota:'—'}</td><td>${badge(im.status)}</td></tr>`;
+  }).join('');
+
+  const ctx1=document.getElementById('chart-corretor-bar').getContext('2d');
+  if(chartCorBar) chartCorBar.destroy();
+  chartCorBar=new Chart(ctx1,{type:'bar',data:{labels:DB.corretores.map(c=>c.nome.split(' ')[0]),datasets:[
+    {label:'Visitas',data:DB.corretores.map(c=>c.visitas),backgroundColor:hexToRgba(DB.company.color,.7),borderColor:DB.company.color,borderWidth:2,borderRadius:5},
+    {label:'Realizadas',data:DB.corretores.map(c=>DB.visitas.filter(v=>v.corretor===c.nome&&v.status==='realizado').length),backgroundColor:'rgba(80,193,122,.6)',borderColor:'#50C17A',borderWidth:2,borderRadius:5},
+  ]},options:{plugins:{legend:{labels:{color:'#888',font:{family:'Outfit'},boxWidth:10}}},scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#666'}},y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#666'}}},responsive:true}});
+
+  const ctx2=document.getElementById('chart-conversao').getContext('2d');
+  if(chartConv) chartConv.destroy();
+  chartConv=new Chart(ctx2,{type:'line',data:{labels:['Set','Out','Nov','Dez','Jan','Fev'],datasets:[{label:'Conversão %',data:[22,18,25,20,24,Math.round(DB.visitas.filter(v=>v.status==='realizado').length/Math.max(DB.visitas.length,1)*100)],borderColor:DB.company.color,backgroundColor:hexToRgba(DB.company.color,.1),tension:.4,fill:true,pointBackgroundColor:DB.company.color,pointRadius:4}]},options:{plugins:{legend:{labels:{color:'#888',font:{family:'Outfit'},boxWidth:10}}},scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#666'}},y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#666'}}},responsive:true}});
+}
+
+function exportPDF(){ showToast('📄 Gerando PDF... download em breve!','info'); setTimeout(()=>showToast('PDF gerado com sucesso!','success'),1500); }
+function exportExcel(){ showToast('📊 Gerando Excel... download em breve!','info'); setTimeout(()=>showToast('Excel gerado com sucesso!','success'),1200); }
+
+/* ═══════════════════════════════════════════════════════════════
+   HISTÓRICO
+═══════════════════════════════════════════════════════════════ */
+function openHistoricoImovel(id) {
+  const im=DB.imoveis.find(i=>i.id===id);
+  const vImovel=DB.visitas.filter(v=>v.imovelId===id||v.imovel===im.titulo);
+  const avImovel=DB.avaliacoes.filter(a=>a.imovel===im.titulo);
+  const body=`
+    <div style="display:flex;gap:12px;margin-bottom:20px;padding:14px;background:var(--bg3);border-radius:10px">
+      <span style="font-size:2.5rem">${TIPO_EMOJI[im.tipo]||'🏠'}</span>
+      <div>
+        <div style="font-size:1rem;font-weight:700">${im.titulo}</div>
+        <div style="font-size:.78rem;color:var(--text3)">${im.endereco}</div>
+        <div style="font-size:.9rem;color:var(--amber2);font-weight:600;margin-top:4px">${fmtMoney(im.preco,im.finalidade)}</div>
+      </div>
+      <div style="margin-left:auto">${badge(im.status)}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;text-align:center">
+      <div style="background:var(--bg3);border-radius:8px;padding:12px"><div style="font-size:1.4rem;font-weight:700;color:var(--amber2)">${im.visitas}</div><div style="font-size:.7rem;color:var(--text3)">Total Visitas</div></div>
+      <div style="background:var(--bg3);border-radius:8px;padding:12px"><div style="font-size:1.4rem;font-weight:700;color:var(--green)">${vImovel.filter(v=>v.status==='realizado').length}</div><div style="font-size:.7rem;color:var(--text3)">Realizadas</div></div>
+      <div style="background:var(--bg3);border-radius:8px;padding:12px"><div style="font-size:1.4rem;font-weight:700;color:var(--blue)">${avImovel.length>0?('⭐ '+(avImovel.reduce((s,a)=>(s+(a.notaAtend+a.notaImovel)/2),0)/avImovel.length).toFixed(1)):'—'}</div><div style="font-size:.7rem;color:var(--text3)">Avaliação</div></div>
+    </div>
+    <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:10px">Histórico de Visitas</div>
+    <div class="hist-wrap">
+      ${vImovel.length?vImovel.map(v=>`<div class="hist-item">
+        <div class="hist-dot ${v.status==='realizado'?'green':v.status==='cancelado'?'red':v.status==='confirmado'?'amber':'blue'}"></div>
+        <div class="hist-time">${fmt(v.data)} ${v.hora}</div>
+        <div class="hist-card"><div class="hist-title">${v.cliente} <span style="font-size:.72rem;color:var(--text3)">via ${v.corretor}</span></div><div class="hist-desc">${badge(v.status)} ${v.tipo}</div></div>
+      </div>`).join(''):'<p style="color:var(--text3);font-size:.8rem">Nenhuma visita registrada</p>'}
+    </div>`;
+  document.getElementById('hist-title').textContent=`Histórico: ${im.titulo}`;
+  document.getElementById('hist-body').innerHTML=body;
+  openModal('m-historico');
+}
+
+function openHistoricoCliente(id) {
+  const cl=DB.clientes.find(c=>c.id===id);
+  const vCl=DB.visitas.filter(v=>v.cliente===cl.nome);
+  const avCl=DB.avaliacoes.filter(a=>a.cliente===cl.nome);
+  const body=`
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;padding:14px;background:var(--bg3);border-radius:10px">
+      <div style="width:46px;height:46px;border-radius:50%;background:var(--blue-d);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700">${initials(cl.nome)}</div>
+      <div>
+        <div style="font-weight:700;font-size:.95rem">${cl.nome}</div>
+        <div style="font-size:.78rem;color:var(--text3)">${cl.email} · ${cl.tel}</div>
+        <div style="font-size:.75rem;color:var(--text3);margin-top:2px">Interesse: ${cl.interesse} · Faixa: ${cl.faixa}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;text-align:center">
+      <div style="background:var(--bg3);border-radius:8px;padding:12px"><div style="font-size:1.4rem;font-weight:700;color:var(--amber2)">${cl.visitas}</div><div style="font-size:.7rem;color:var(--text3)">Visitas</div></div>
+      <div style="background:var(--bg3);border-radius:8px;padding:12px"><div style="font-size:1.4rem;font-weight:700;color:var(--green)">${vCl.filter(v=>v.status==='realizado').length}</div><div style="font-size:.7rem;color:var(--text3)">Realizadas</div></div>
+      <div style="background:var(--bg3);border-radius:8px;padding:12px"><div style="font-size:1.4rem;font-weight:700;color:var(--blue)">${avCl.length}</div><div style="font-size:.7rem;color:var(--text3)">Avaliações</div></div>
+    </div>
+    <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:10px">Histórico de Visitas</div>
+    <div class="hist-wrap">
+      ${vCl.length?vCl.map(v=>`<div class="hist-item">
+        <div class="hist-dot ${v.status==='realizado'?'green':v.status==='cancelado'?'red':v.status==='confirmado'?'amber':'blue'}"></div>
+        <div class="hist-time">${fmt(v.data)} ${v.hora}</div>
+        <div class="hist-card"><div class="hist-title">${v.imovel}</div><div class="hist-desc">${badge(v.status)} · Corretor: ${v.corretor}</div></div>
+      </div>`).join(''):'<p style="color:var(--text3);font-size:.8rem">Nenhuma visita registrada</p>'}
+    </div>`;
+  document.getElementById('hist-title').textContent=`Histórico: ${cl.nome}`;
+  document.getElementById('hist-body').innerHTML=body;
+  openModal('m-historico');
+}
+
+function openHistoricoCorretor(id) {
+  const cor=DB.corretores.find(c=>c.id===id);
+  const vCor=DB.visitas.filter(v=>v.corretor===cor.nome);
+  const avCor=DB.avaliacoes.filter(a=>a.corretor===cor.nome);
+  const real=vCor.filter(v=>v.status==='realizado').length;
+  const conv=vCor.length?Math.round(real/vCor.length*100):0;
+  const body=`
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;padding:14px;background:var(--bg3);border-radius:10px">
+      <div style="width:46px;height:46px;border-radius:50%;background:var(--amber-dim);color:var(--amber2);display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700">${initials(cor.nome)}</div>
+      <div>
+        <div style="font-weight:700;font-size:.95rem">${cor.nome}</div>
+        <div style="font-size:.78rem;color:var(--text3)">CRECI: ${cor.creci} · Gerente: ${cor.gerente||'—'}</div>
+        <div style="font-size:.75rem;color:var(--text3);margin-top:2px">Comissão: ${cor.comissao}%</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:20px;text-align:center">
+      <div style="background:var(--bg3);border-radius:8px;padding:10px"><div style="font-size:1.3rem;font-weight:700;color:var(--amber2)">${vCor.length}</div><div style="font-size:.68rem;color:var(--text3)">Visitas</div></div>
+      <div style="background:var(--bg3);border-radius:8px;padding:10px"><div style="font-size:1.3rem;font-weight:700;color:var(--green)">${real}</div><div style="font-size:.68rem;color:var(--text3)">Realizadas</div></div>
+      <div style="background:var(--bg3);border-radius:8px;padding:10px"><div style="font-size:1.3rem;font-weight:700;color:var(--blue)">${conv}%</div><div style="font-size:.68rem;color:var(--text3)">Conversão</div></div>
+      <div style="background:var(--bg3);border-radius:8px;padding:10px"><div style="font-size:1.3rem;font-weight:700;color:var(--purple)">${avCor.length>0?(avCor.reduce((s,a)=>(s+(a.notaAtend+a.notaImovel)/2),0)/avCor.length).toFixed(1):'—'}</div><div style="font-size:.68rem;color:var(--text3)">Avaliação</div></div>
+    </div>
+    <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:10px">Últimas Visitas</div>
+    <div class="hist-wrap">
+      ${vCor.slice(0,6).map(v=>`<div class="hist-item">
+        <div class="hist-dot ${v.status==='realizado'?'green':v.status==='cancelado'?'red':'amber'}"></div>
+        <div class="hist-time">${fmt(v.data)}</div>
+        <div class="hist-card"><div class="hist-title">${v.imovel} <span style="font-size:.72rem;color:var(--text3)">– ${v.cliente}</span></div><div class="hist-desc">${badge(v.status)}</div></div>
+      </div>`).join('')||'<p style="color:var(--text3);font-size:.8rem">Nenhuma visita</p>'}
+    </div>`;
+  document.getElementById('hist-title').textContent=`Histórico: ${cor.nome}`;
+  document.getElementById('hist-body').innerHTML=body;
+  openModal('m-historico');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NOTIFICAÇÕES
+═══════════════════════════════════════════════════════════════ */
+function renderNotificacoes() {
+  document.getElementById('notif-list').innerHTML=DB.notificacoes.map(n=>`
+    <div class="notif-item ${n.lida?'':'unread'}" onclick="markRead(${n.id})">
+      <div style="font-size:1.1rem;flex-shrink:0">${n.icon}</div>
+      <div class="${n.lida?'notif-read-dot':'notif-unread-dot'}"></div>
+      <div style="flex:1">
+        <div class="notif-text">${n.texto}</div>
+        <div class="notif-time">${n.tempo}</div>
+      </div>
+    </div>`).join('');
+}
+function markRead(id){ DB.notificacoes.find(n=>n.id===id).lida=true; renderNotificacoes(); refreshNavBadges(); }
+function markAllRead(){ DB.notificacoes.forEach(n=>n.lida=true); renderNotificacoes(); refreshNavBadges(); }
+
+/* ═══════════════════════════════════════════════════════════════
+   PERFIL
+═══════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   PERFIL
+═══════════════════════════════════════════════════════════════ */
+const ACCESS_LOG_DEMO = [
+  { icon:'💻', device:'Chrome · MacOS', ip:'189.43.xx.xx', city:'São Paulo, SP', time:'Hoje, 14:32', current:true },
+  { icon:'📱', device:'Safari · iPhone 15', ip:'189.43.xx.xx', city:'São Paulo, SP', time:'Hoje, 09:10', current:false },
+  { icon:'💻', device:'Chrome · Windows', ip:'187.22.xx.xx', city:'Campinas, SP', time:'Ontem, 18:45', current:false },
+  { icon:'📱', device:'Chrome · Android', ip:'189.43.xx.xx', city:'São Paulo, SP', time:'15/02, 11:20', current:false },
+];
+
+function renderPerfil() {
+  const u = state.currentUser;
+  const tel = u.tel || '';
+  const telClean = tel.replace(/\D/g,'');
+  const hasValidWa = telClean.length >= 10;
+
+  // Hero
+  document.getElementById('profile-header').innerHTML = `
+    <div class="pf-hero-ava">
+      ${u.avatar
+        ? `<img src="${u.avatar}" alt="avatar">`
+        : `<div class="profile-ava-big" style="width:72px;height:72px;font-size:1.1rem;background:${roleBg(u.role)};color:${roleColor(u.role)}">${initials(u.nome)}</div>`
+      }
+    </div>
+    <div class="pf-hero-info">
+      <div class="pf-hero-name">${u.nome}</div>
+      <div class="pf-hero-role">
+        ${roleBadge(u.role)}
+        <span>${u.email}</span>
+        ${u.bio ? `<span style="color:var(--text2)">· ${u.bio.slice(0,50)}${u.bio.length>50?'…':''}</span>` : ''}
+      </div>
+      ${hasValidWa ? `
+        <button class="pf-hero-wa" style="margin-top:8px" onclick="testWaLink()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+          ${tel} · Testar WhatsApp
+        </button>` : ''}
+    </div>
+    <div style="margin-left:auto;text-align:right;flex-shrink:0">
+      <div style="font-size:.7rem;color:var(--text3);margin-bottom:4px">Membro desde</div>
+      <div style="font-size:.85rem;font-weight:600">${fmt(u.criado)}</div>
+    </div>`;
+
+  // Form fields
+  document.getElementById('pf-nome').value = u.nome;
+  document.getElementById('pf-email').value = u.email;
+  document.getElementById('pf-tel').value = tel;
+  document.getElementById('pf-bio').value = u.bio || '';
+
+  // Avatar preview
+  const avPrev = document.getElementById('pf-avatar-preview');
+  if(u.avatar) {
+    avPrev.outerHTML = `<img src="${u.avatar}" id="pf-avatar-preview" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid var(--amber-glow);cursor:pointer" onclick="document.getElementById('pf-avatar-inp').click()">`;
+  } else {
+    avPrev.style.cssText = `width:64px;height:64px;font-size:1.1rem;cursor:pointer;background:${roleBg(u.role)};color:${roleColor(u.role)}`;
+    avPrev.textContent = initials(u.nome);
+  }
+  document.getElementById('pf-avatar-name').textContent = u.avatar ? 'Foto carregada ✓' : 'Clique no avatar para alterar';
+
+  // Phone validation state
+  if(tel) validateWaPhone(document.getElementById('pf-tel'));
+
+  // Bio counter
+  const bioEl = document.getElementById('pf-bio');
+  const bioCount = document.getElementById('pf-bio-count');
+  if(bioEl && bioCount) {
+    bioCount.textContent = `${bioEl.value.length}/200`;
+    bioEl.oninput = () => { bioCount.textContent = `${bioEl.value.length}/200`; };
+    bioEl.maxLength = 200;
+  }
+
+  // 2FA status
+  if(u.twoFA) {
+    document.getElementById('pf-2fa').checked = true;
+    document.getElementById('pf-2fa-active').style.display = '';
+  }
+
+  // Access log
+  const logEl = document.getElementById('pf-access-log');
+  if(logEl) {
+    logEl.innerHTML = ACCESS_LOG_DEMO.map(a => `
+      <div class="access-log-item">
+        <span style="font-size:1.2rem">${a.icon}</span>
+        <div style="flex:1">
+          <div style="font-weight:600">${a.device} ${a.current?'<span style="background:var(--green-d);color:var(--green);border-radius:4px;padding:1px 6px;font-size:.65rem;font-weight:700;margin-left:4px">Sessão atual</span>':''}</div>
+          <div class="access-device">${a.city} · ${a.ip} · ${a.time}</div>
+        </div>
+        ${!a.current?`<button class="btn btn-ghost btn-xs" onclick="showToast('Sessão encerrada','info')" style="color:var(--red)">Encerrar</button>`:''}
+      </div>`).join('');
+  }
+
+  // Org access log on cfg tab
+  renderOrgAccessLog();
+}
+
+function renderOrgAccessLog() {
+  const el = document.getElementById('cfg-access-org');
+  if(!el) return;
+  const entries = [
+    ...DB.users.filter(u=>u.role!=='cliente').map(u=>({
+      nome:u.nome, role:u.role, ip:'189.43.xx.xx', city:'São Paulo, SP',
+      time: u.id<=2 ? 'Hoje, 14:32' : u.id===3 ? 'Hoje, 09:15' : 'Ontem, 17:00',
+      device:'Chrome'
+    }))
+  ];
+  el.innerHTML = entries.map(e=>`
+    <div class="access-log-item">
+      <div style="width:28px;height:28px;border-radius:8px;background:${roleBg(e.role)};color:${roleColor(e.role)};display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;flex-shrink:0">${initials(e.nome)}</div>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:.8rem">${e.nome} ${roleBadge(e.role)}</div>
+        <div class="access-device">${e.city} · ${e.ip} · ${e.time} · ${e.device}</div>
+      </div>
+    </div>`).join('');
+}
+
+function saveProfile() {
+  const nome = document.getElementById('pf-nome').value.trim();
+  const email = document.getElementById('pf-email').value.trim();
+  const tel = document.getElementById('pf-tel').value.trim();
+  const bio = document.getElementById('pf-bio').value.trim();
+  if(!nome || !email) { showToast('Nome e email são obrigatórios','error'); return; }
+
+  // Save to currentUser and DB.users
+  state.currentUser.nome = nome;
+  state.currentUser.email = email;
+  state.currentUser.tel = tel;
+  state.currentUser.bio = bio;
+  const dbUser = DB.users.find(u => u.id === state.currentUser.id);
+  if(dbUser) { dbUser.nome=nome; dbUser.email=email; dbUser.tel=tel; dbUser.bio=bio; }
+
+  // Also update DB.corretores if this user is a corretor
+  const corr = DB.corretores.find(c => c.nome === state.currentUser.nome || c.email === email);
+  if(corr) { corr.nome=nome; corr.email=email; corr.tel=tel; }
+
+  syncToFirebase('users', state.currentUser);
+  updateUserPill();
+  renderPerfil();
+  showToast('Perfil atualizado com sucesso! ✓','success');
+}
+
+function validateWaPhone(inp) {
+  const clean = inp.value.replace(/\D/g,'');
+  const status = document.getElementById('pf-tel-status');
+  const btn = document.getElementById('pf-tel-test');
+  if(clean.length >= 10) {
+    if(status) { status.textContent = '✅'; status.style.color = 'var(--green)'; }
+    if(btn) { btn.style.opacity='1'; btn.style.pointerEvents='auto'; }
+  } else if(clean.length > 0) {
+    if(status) { status.textContent = '⚠️'; status.style.color = 'var(--amber)'; }
+    if(btn) { btn.style.opacity='.4'; btn.style.pointerEvents='none'; }
+  } else {
+    if(status) status.textContent = '';
+    if(btn) { btn.style.opacity='.4'; btn.style.pointerEvents='none'; }
+  }
+  // Auto-mask Brazilian phone
+  let v = clean;
+  if(v.length > 0) v = '(' + v;
+  if(v.length > 3) v = v.slice(0,3) + ') ' + v.slice(3);
+  if(v.length > 10) v = v.slice(0,10) + (v.length > 11 ? '-' : '') + v.slice(10);
+  inp.value = v.slice(0, 15);
+}
+
+function testWaLink() {
+  const tel = (state.currentUser.tel || '').replace(/\D/g,'');
+  if(!tel || tel.length < 10) { showToast('Cadastre um telefone válido primeiro','error'); return; }
+  const msg = 'Olá! Estou testando o WhatsApp do meu perfil no ImóvelAgenda. 👋';
+  window.open(waLink(tel, msg), '_blank');
+}
+
+function handleAvatarUpload(e) {
+  const file = e.target.files[0];
+  if(!file) return;
+  if(file.size > 2*1024*1024) { showToast('Foto muito grande — máx 2MB','error'); return; }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    state.currentUser.avatar = ev.target.result;
+    const dbUser = DB.users.find(u=>u.id===state.currentUser.id);
+    if(dbUser) dbUser.avatar = ev.target.result;
+    renderPerfil();
+    updateUserPill();
+    showToast('Foto atualizada! ✓','success');
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeAvatar() {
+  state.currentUser.avatar = null;
+  const dbUser = DB.users.find(u=>u.id===state.currentUser.id);
+  if(dbUser) dbUser.avatar = null;
+  renderPerfil();
+  updateUserPill();
+  showToast('Foto removida','info');
+}
+
+function checkPassStrength(val) {
+  const bar = document.getElementById('pass-strength-bar');
+  const lbl = document.getElementById('pass-strength-label');
+  if(!bar || !val) return;
+  let score = 0;
+  if(val.length >= 8) score++;
+  if(/[A-Z]/.test(val)) score++;
+  if(/[0-9]/.test(val)) score++;
+  if(/[^a-zA-Z0-9]/.test(val)) score++;
+  if(val.length >= 12) score++;
+  const levels = [
+    {w:'20%', color:'var(--red)',    label:'Muito fraca'},
+    {w:'40%', color:'var(--red)',    label:'Fraca'},
+    {w:'60%', color:'var(--amber)',  label:'Média'},
+    {w:'80%', color:'var(--amber2)', label:'Forte'},
+    {w:'100%',color:'var(--green)',  label:'Muito forte'},
+  ];
+  const lvl = levels[Math.max(0,score-1)] || levels[0];
+  bar.style.width = lvl.w;
+  bar.style.background = lvl.color;
+  lbl.textContent = lvl.label;
+  lbl.style.color = lvl.color;
+}
+
+function checkPassMatch() {
+  const nova = document.getElementById('pf-senha-nova').value;
+  const conf = document.getElementById('pf-senha-conf').value;
+  const lbl = document.getElementById('pass-match-label');
+  if(!conf) { lbl.textContent=''; return; }
+  if(nova === conf) {
+    lbl.textContent = '✅ Senhas coincidem';
+    lbl.style.color = 'var(--green)';
+  } else {
+    lbl.textContent = '❌ Senhas não coincidem';
+    lbl.style.color = 'var(--red)';
+  }
+}
+
+function togglePassVis(id) {
+  const inp = document.getElementById(id);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+function savePassword() {
+  const atual = document.getElementById('pf-senha-atual').value;
+  const nova = document.getElementById('pf-senha-nova').value;
+  const conf = document.getElementById('pf-senha-conf').value;
+  if(!atual || !nova || !conf) { showToast('Preencha todos os campos','error'); return; }
+  if(atual !== state.currentUser.senha) { showToast('Senha atual incorreta','error'); return; }
+  if(nova !== conf) { showToast('Novas senhas não coincidem','error'); return; }
+  if(nova.length < 6) { showToast('Nova senha muito curta (mín. 6 caracteres)','error'); return; }
+  state.currentUser.senha = nova;
+  const dbUser = DB.users.find(u=>u.id===state.currentUser.id);
+  if(dbUser) dbUser.senha = nova;
+  document.getElementById('pf-senha-atual').value = '';
+  document.getElementById('pf-senha-nova').value = '';
+  document.getElementById('pf-senha-conf').value = '';
+  document.getElementById('pass-strength-bar').style.width = '0';
+  document.getElementById('pass-strength-label').textContent = '';
+  document.getElementById('pass-match-label').textContent = '';
+  syncToFirebase('users', state.currentUser);
+  showToast('Senha atualizada com sucesso! 🔒','success');
+}
+
+function toggle2FA(cb) {
+  if(cb.checked) {
+    document.getElementById('pf-2fa-setup').style.display = '';
+    document.getElementById('pf-2fa-active').style.display = 'none';
+  } else {
+    document.getElementById('pf-2fa-setup').style.display = 'none';
+    document.getElementById('pf-2fa-active').style.display = 'none';
+    state.currentUser.twoFA = false;
+    showToast('2FA desativado','info');
+  }
+}
+
+function confirm2FA() {
+  state.currentUser.twoFA = true;
+  document.getElementById('pf-2fa-setup').style.display = 'none';
+  document.getElementById('pf-2fa-active').style.display = '';
+  showToast('2FA ativado com sucesso! 🛡️','success');
+}
+
+/* Configurações tabs */
+function setCfgTab(tab, btn) {
+  document.querySelectorAll('.cfg-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.cfg-panel').forEach(p=>p.style.display='none');
+  btn.classList.add('active');
+  document.getElementById('cfg-' + tab).style.display = '';
+}
+
+function saveCfgEmpresa() {
+  saveCfg(); // reuse existing
+  showToast('Dados da empresa salvos ✓','success');
+}
+
+function maskCNPJ(inp) {
+  let v = inp.value.replace(/\D/g,'').slice(0,14);
+  if(v.length > 12) v = v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
+  else if(v.length > 8) v = v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8);
+  else if(v.length > 5) v = v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5);
+  else if(v.length > 2) v = v.slice(0,2)+'.'+v.slice(2);
+  inp.value = v;
+}
+
+/* Update user pill to show avatar if present */
+
+
+/* ═══════════════════════════════════════════════════════════════
+   USUÁRIOS
+═══════════════════════════════════════════════════════════════ */
+function renderUsuarios() {
+  const me = state.currentUser;
+  const myOrd = ROLE_ORDER.indexOf(me.role);
+  const visible = DB.users.filter(u => u.orgId===(me.orgId||'org1') || me.role==='admin');
+  document.getElementById('usuarios-tbody').innerHTML = visible.map(u => {
+    const canAct = u.id!==me.id && ROLE_ORDER.indexOf(u.role)<myOrd || myOrd===ROLE_ORDER.length-1;
+    return `<tr>
+      <td><div style="display:flex;align-items:center;gap:9px">
+        <div style="width:30px;height:30px;border-radius:50%;background:${roleBg(u.role)};color:${roleColor(u.role)};display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;flex-shrink:0">${initials(u.nome)}</div>
+        <div><div class="cell-main">${u.nome}</div><div style="font-size:.68rem;color:var(--text3)">${u.email}</div></div>
+      </div></td>
+      <td>${roleBadge(u.role)}</td>
+      <td>${fmt(u.criado)}</td>
+      <td>${badge(u.ativo?'ativo':'cancelado')}</td>
+      <td><div class="td-actions">${canAct
+        ?`<button class="icon-btn red" onclick="removeUsuario(${u.id})" title="Remover">🗑</button>`
+        :'<span style="font-size:.68rem;color:var(--text3)">—</span>'
+      }</div></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="5" style="text-align:center;padding:28px;color:var(--text3)">Nenhum usuário</td></tr>';
+}
+function onUsRoleChange() {
+  const role = document.getElementById('us-role').value;
+  document.getElementById('us-creci-row').style.display = role==='corretor' ? '' : 'none';
+  const gerenteRow = document.getElementById('us-gerente-row');
+  const gerenteSel = document.getElementById('us-gerente-sel');
+  if ((role==='corretor'||role==='gerente') && state.currentUser.role!=='gerente') {
+    const gs = DB.users.filter(u=>u.role==='gerente'&&(u.orgId===state.currentUser.orgId||state.currentUser.role==='master'));
+    gerenteSel.innerHTML = '<option value="">Nenhum</option>'+gs.map(g=>`<option value="${g.nome}">${g.nome}</option>`).join('');
+    gerenteRow.style.display='';
+  } else { gerenteRow.style.display='none'; }
+  const txt=document.getElementById('us-permission-text');
+  if(txt) txt.textContent='Cadastrando: '+(ROLE_LABELS[role]||role);
+}
+
+function openAddUsuario() {
+  const allowed = rolesQuePosCadastrar(state.currentUser.role);
+  if (!allowed.length) { showToast('Sem permissão para cadastrar usuários','error'); return; }
+  const sel = document.getElementById('us-role');
+  sel.innerHTML = allowed.map(r=>`<option value="${r}">${ROLE_LABELS[r]}</option>`).join('');
+  sel.value = allowed[allowed.length-1]; // default: lowest role (cliente)
+  onUsRoleChange();
+  openModal('m-add-usuario');
+}
+
+function addUsuario(){
+  const nome  = document.getElementById('us-nome').value.trim();
+  const email = document.getElementById('us-email').value.trim().toLowerCase();
+  const role  = document.getElementById('us-role').value;
+  const senha = document.getElementById('us-senha').value.trim() || 'Trocar@2025';
+  if (!nome||!email) { showToast('Preencha nome e email','error'); return; }
+  if (DB.users.find(u=>u.email.toLowerCase()===email)) { showToast('Email já cadastrado','error'); return; }
+  if (!rolesQuePosCadastrar(state.currentUser.role).includes(role)) { showToast('Sem permissão para este perfil','error'); return; }
+  const gerenteVal = document.getElementById('us-gerente-sel')?.value ||
+    (state.currentUser.role==='gerente' ? state.currentUser.nome : '');
+  const newUser = {
+    id:Date.now(), nome, email, role, senha, ativo:true,
+    criado:new Date().toISOString().split('T')[0],
+    tel:'', bio:'', orgId:state.currentUser.orgId||'org1',
+    criadoPor:state.currentUser.id
+  };
+  DB.users.push(newUser);
+  createFirebaseAuthUser(email, senha).catch(()=>{});
+  if (role==='corretor') {
+    DB.corretores.push({
+      id:newUser.id, nome, email,
+      creci:document.getElementById('us-creci')?.value||'—',
+      tel:'', visitas:0, comissao:5, status:'ativo',
+      gerente:gerenteVal, orgId:newUser.orgId
+    });
+  }
+  ['us-nome','us-email','us-senha'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  closeModal('m-add-usuario');
+  _renderLoginProfiles();
+  showToast(`${ROLE_LABELS[role]} "${nome}" cadastrado! Senha: ${senha}`,'success');
+  renderUsuarios();
+  syncToFirebase('users', newUser);
+}
+
+function removeUsuario(id) {
+  const u = DB.users.find(x=>x.id===id);
+  if (!u) return;
+  if (u.role==='master') { showToast('Não é possível remover o perfil Master','error'); return; }
+  if (u.id===state.currentUser.id) { showToast('Não é possível remover seu próprio perfil','error'); return; }
+  const myOrd=ROLE_ORDER.indexOf(state.currentUser.role), theirOrd=ROLE_ORDER.indexOf(u.role);
+  if (theirOrd>=myOrd && state.currentUser.role!=='master') { showToast('Sem permissão','error'); return; }
+  if (!confirm(`Remover ${u.nome}?`)) return;
+  DB.users = DB.users.filter(x=>x.id!==id);
+  DB.corretores = DB.corretores.filter(x=>x.email!==u.email);
+  _renderLoginProfiles();
+  renderUsuarios();
+  showToast('Usuário removido','info');
+  _deleteDoc('users', id);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ADD IMÓVEL
+═══════════════════════════════════════════════════════════════ */
+function addImovel(){
+  const titulo=document.getElementById('im-tit').value;
+  const endereco=document.getElementById('im-end').value;
+  const preco=parseFloat(document.getElementById('im-preco').value);
+  if(!titulo||!endereco||!preco){showToast('Preencha os campos obrigatórios','error');return;}
+  DB.imoveis.push({
+    id:Date.now(),titulo,
+    tipo:document.getElementById('im-tipo').value,
+    endereco,bairro:'',preco,
+    area:parseInt(document.getElementById('im-area').value)||0,
+    quartos:parseInt(document.getElementById('im-qtos').value)||0,
+    banheiros:parseInt(document.getElementById('im-ban').value)||0,
+    vagas:parseInt(document.getElementById('im-vag').value)||0,
+    status:document.getElementById('im-stat').value,
+    finalidade:document.getElementById('im-fin').value,
+    corrResp:document.getElementById('im-corr').value||'',
+    desc:document.getElementById('im-desc').value,
+    visitas:0, lat:Math.random()*70+10, lng:Math.random()*80+10,
+  });
+  closeModal('m-add-imovel');
+  syncToFirebase('imoveis', DB.imoveis[DB.imoveis.length-1]);
+  showToast('Imóvel cadastrado com sucesso!','success');
+  renderImoveis();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CONFIGURAÇÕES
+═══════════════════════════════════════════════════════════════ */
+function saveCfg(){
+  DB.company.name=document.getElementById('cfg-name').value||'ImóvelAgenda';
+  DB.company.color=document.getElementById('cfg-color').value;
+  applyBranding();
+  syncToFirebase('company');
+  buildSideNav();
+  showToast(`Configurações de "${DB.company.name}" salvas!`,'success');
+}
+function syncCfgColor(v){ document.getElementById('cfg-color-hex').value=v; }
+function syncCfgColorHex(v){ if(/^#[0-9A-Fa-f]{6}$/.test(v)) document.getElementById('cfg-color').value=v; }
+function handleLogoUpload(e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    DB.company.logo=ev.target.result;
+    document.getElementById('logo-drop').innerHTML=`<img src="${ev.target.result}" alt="logo">`;
+    document.getElementById('sb-logo').innerHTML=`<img src="${ev.target.result}" alt="logo">`;
+    document.getElementById('ll-icon').innerHTML=`<img src="${ev.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:10px" alt="logo">`;
+    showToast('Logo atualizado!','success');
+  };
+  r.readAsDataURL(f);
+}
+function removeLogo(){
+  DB.company.logo='';
+  document.getElementById('logo-drop').innerHTML=`<span id="logo-drop-icon" style="font-size:2rem">🏠</span><span id="logo-drop-txt" style="font-size:.7rem">Clique para enviar</span>`;
+  document.getElementById('sb-logo').textContent='🏠';
+  showToast('Logo removido','info');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MODAL HELPERS
+═══════════════════════════════════════════════════════════════ */
+function openModal(id){
+  const role = state.currentUser.role;
+  if(id==='m-add-corretor') {
+    const sel = document.getElementById('cor-ger');
+    if(role==='gerente') {
+      sel.value = state.currentUser.nome;
+      sel.closest('.fg').style.display = 'none'; // hide gerente selector for gerentes
+    } else {
+      sel.closest('.fg').style.display = '';
+      // Populate gerente options dynamically
+      sel.innerHTML = '<option value="">Sem gerente</option>' +
+        DB.users.filter(u=>u.role==='gerente').map(u=>`<option value="${u.nome}">${u.nome}</option>`).join('');
+    }
+  }
+  if(id==='m-add-imovel' && !['admin','gerente','corretor'].includes(role)) {
+    showToast('Sem permissão para cadastrar imóveis','error'); return;
+  }
+  if(id==='m-edit-imovel' && !['admin','gerente'].includes(role)) {
+    showToast('Sem permissão para editar imóveis','error'); return;
+  }
+  if(id==='m-agendar') populateAgendarSelects();
+  if(id==='m-add-imovel'){
+    const sel=document.getElementById('im-corr');
+    sel.innerHTML=DB.corretores.map(c=>`<option>${c.nome}</option>`).join('');
+  }
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+function openDetalheGenerico(title,body,footer,icon='🔎'){
+  document.getElementById('det-icon').textContent=icon;
+  document.getElementById('det-title').textContent=title;
+  document.getElementById('det-body').innerHTML=body;
+  document.getElementById('det-footer').innerHTML=(footer||'')+`<button class="btn btn-ghost" onclick="closeModal('m-detalhe')">Fechar</button>`;
+  openModal('m-detalhe');
+}
+document.querySelectorAll('.modal-overlay').forEach(el=>el.addEventListener('click',e=>{ if(e.target===el) closeModal(el.id); }));
+
+/* ═══════════════════════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════════════════════ */
+function showToast(msg,type='info'){
+  const icons={success:'✅',error:'❌',info:'ℹ️'};
+  const el=document.createElement('div');
+  el.className=`toast ${type}`;
+  el.innerHTML=`<span class="toast-icon">${icons[type]||'ℹ️'}</span>${msg}`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(()=>{ el.style.animation='toastIn .3s ease reverse both'; setTimeout(()=>el.remove(),300); },3200);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MISC
+═══════════════════════════════════════════════════════════════ */
+function refreshNavBadges(){
+  const vBadge=document.querySelector('#nav-visitas .nav-badge');
+  if(vBadge) vBadge.textContent=DB.visitas.filter(v=>v.status==='agendado').length;
+  const nBadge=document.querySelector('#nav-notificacoes .nav-badge');
+  if(nBadge) nBadge.textContent=DB.notificacoes.filter(n=>!n.lida).length;
+  document.getElementById('notif-dot').style.display=DB.notificacoes.some(n=>!n.lida)?'':'none';
+  // Bottom nav badges
+  const ag = DB.visitas.filter(v=>v.status==='agendado').length;
+  const bnVis = document.getElementById('bn-badge-visitas');
+  if(bnVis){ bnVis.textContent=ag; bnVis.style.display=ag>0?'flex':'none'; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BOTTOM NAV
+═══════════════════════════════════════════════════════════════ */
+const BN_MAP = {
+  'dashboard':          'inicio',
+  'dashboard-cliente':  'inicio',
+  'imoveis':            'imoveis',
+  'visitas':            'visitas',
+  'chat':               'chat',
+};
+
+function bnNavigate(target) {
+  const role = state.currentUser.role;
+  const pageMap = {
+    'inicio':     role === 'cliente' ? 'dashboard-cliente' : 'dashboard',
+    'imoveis':    'imoveis',
+    'visitas':    role === 'cliente' ? 'visitas' : 'visitas',
+    'agenda-bn':  'agenda',
+    'chat':       'chat',
+  };
+  navigate(pageMap[target] || target);
+  updateBottomNav(target);
+  closeModal('m-mobile-menu');
+}
+
+function updateBottomNav(activeId) {
+  document.querySelectorAll('.bn-item').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById(`bn-${activeId}`);
+  if(el) el.classList.add('active');
+}
+
+function openMobileMenu() {
+  const role = state.currentUser.role;
+  const items = [
+    { icon:'📅', label:'Agenda',        page:'agenda',        roles:['admin','gerente','corretor'] },
+    { icon:'👥', label:'Clientes',       page:'clientes',      roles:['admin','gerente','corretor'] },
+    { icon:'🏅', label:'Corretores',     page:'corretores',    roles:['admin','gerente'] },
+    { icon:'🎯', label:'Funil de Vendas',page:'funil',         roles:['admin','gerente','corretor'] },
+    { icon:'🗺️', label:'Mapa',           page:'mapa',          roles:['admin','gerente','corretor'] },
+    { icon:'⭐', label:'Avaliações',     page:'avaliacoes',    roles:['admin','gerente','corretor'] },
+    { icon:'📊', label:'Relatórios',     page:'relatorios',    roles:['admin','gerente'] },
+    { icon:'🔔', label:'Notificações',   page:'notificacoes',  roles:['admin','gerente','corretor','cliente'] },
+    { icon:'👤', label:'Meu Perfil',     page:'perfil',        roles:['admin','gerente','corretor','cliente'] },
+    { icon:'🛡️', label:'Usuários',       page:'usuarios',      roles:['admin'] },
+    { icon:'⚙️', label:'Configurações',  page:'configuracoes', roles:['admin'] },
+  ].filter(i => i.roles.includes(role));
+
+  document.getElementById('mobile-menu-items').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+      ${items.map(i => `
+        <button onclick="navigate('${i.page}');closeModal('m-mobile-menu');updateBottomNav('')"
+          style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px 8px;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:6px;font-family:'Outfit',sans-serif"
+          onmouseover="this.style.borderColor='var(--amber)'" onmouseout="this.style.borderColor='var(--border)'">
+          <span style="font-size:1.4rem">${i.icon}</span>
+          <span style="font-size:.72rem;font-weight:600;color:var(--text)">${i.label}</span>
+        </button>`).join('')}
+    </div>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:flex;gap:8px">
+      <button class="btn btn-primary" style="flex:1" onclick="populateAgendarSelects();openModal('m-agendar');closeModal('m-mobile-menu')">📅 Agendar Visita</button>
+      <button class="btn btn-ghost" onclick="sendWaGeneral()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        WhatsApp
+      </button>
+    </div>`;
+  document.getElementById('m-mobile-menu').classList.add('open');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   WHATSAPP INTEGRATION
+═══════════════════════════════════════════════════════════════ */
+function waLink(phone, text) {
+  const clean = (phone || '').replace(/\D/g,'');
+  const num = clean.startsWith('55') ? clean : '55' + clean;
+  return `https://wa.me/${num}?text=${encodeURIComponent(text)}`;
+}
+
+function getClientPhone(nome) {
+  // First check DB.clientes, then DB.users
+  const cl = DB.clientes.find(x => x.nome === nome);
+  if(cl && cl.tel) return cl.tel;
+  const u = DB.users.find(x => x.nome === nome);
+  return u?.tel || '5511999999999';
+}
+
+function getSenderPhone() {
+  // Use current user's profile phone as sender reference
+  return state.currentUser?.tel || '';
+}
+
+function sendWaVisita(id) {
+  const v = DB.visitas.find(x => x.id === id);
+  // Sign message with sender's name (current logged-in user)
+  const sender = state.currentUser;
+  const assinatura = sender.tel ? `\n\n📱 ${sender.nome} · ${sender.tel}` : `\n\n🏅 ${sender.nome}`;
+  const msg = `Olá ${v.cliente.split(' ')[0]}! 👋\n\nLembrando sua visita ao *${v.imovel}*.\n📅 Data: ${fmt(v.data)} às ${v.hora}\n📍 Tipo: ${v.tipo}\n🏅 Corretor: ${v.corretor}${assinatura}`;
+  window.open(waLink(getClientPhone(v.cliente), msg), '_blank');
+  showToast('Abrindo WhatsApp…', 'success');
+}
+
+function sendWaImovel(id) {
+  const im = DB.imoveis.find(x => x.id === id);
+  const u = state.currentUser;
+  const contato = u.tel ? `\n\n📱 ${u.nome} · ${u.tel}` : `\n\n🏅 ${u.nome}`;
+  const msg = `Olá! Vi um imóvel que pode te interessar 🏡\n\n*${im.titulo}*\n📍 ${im.endereco}\n💰 ${fmtMoney(im.preco, im.finalidade)}\n🛏 ${im.quartos || '—'} quartos · 📐 ${im.area}m²\n\nQuer agendar uma visita?${contato}`;
+  // Try to use recipient's phone if we can identify them, otherwise just share text
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  showToast('Compartilhando imóvel no WhatsApp…', 'success');
+}
+
+function sendWaGeneral() {
+  const u = state.currentUser;
+  const tel = u.tel ? ` · ${u.tel}` : '';
+  const msg = `Olá! Sou ${u.nome} da *${DB.company.name}*${tel}. Como posso te ajudar?`;
+  // If user has their own phone, open chat from their number; otherwise generic share
+  if(u.tel) {
+    window.open(waLink(u.tel, msg), '_blank');
+  } else {
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  }
+}
+
+function openWaFloat() {
+  const role = state.currentUser.role;
+  if (role === 'cliente') {
+    // Client contacts their broker
+    const v = DB.visitas.filter(x => x.cliente === state.currentUser.nome).slice(-1)[0];
+    const corretor = v ? DB.corretores.find(c => c.nome === v.corretor) : DB.corretores[0];
+    if (corretor) {
+      const msg = `Olá ${corretor.nome.split(' ')[0]}! Sou ${state.currentUser.nome}. Preciso de ajuda com ${v ? v.imovel : 'um imóvel'}.`;
+      window.open(waLink(corretor.tel, msg), '_blank');
+    }
+  } else {
+    // Staff sends general message
+    sendWaGeneral();
+  }
+}
+
+// Confirm visit with WA message
+function confirmarVisitaWa(id) {
+  const v = DB.visitas.find(x => x.id === id);
+  v.status = 'confirmado';
+  renderVisitas();
+  const msg = `✅ Visita CONFIRMADA!\n\n*${v.imovel}*\n📅 ${fmt(v.data)} às ${v.hora}\n🏅 Corretor: ${v.corretor}\n\nAté lá! 😊`;
+  window.open(waLink(getClientPhone(v.cliente), msg), '_blank');
+  showToast('Visita confirmada! WhatsApp aberto ✓', 'success');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GOOGLE CALENDAR UI
+═══════════════════════════════════════════════════════════════ */
+const GCAL_COLORS = ['#4285F4','#0F9663','#F4511E','#E4C441','#A142F4','#33B679'];
+
+function renderGCalEvents() {
+  const proximas = DB.visitas
+    .filter(v => v.status !== 'cancelado')
+    .sort((a,b) => a.data.localeCompare(b.data))
+    .slice(0, 6);
+
+  // Main gcal panel
+  const gcalEl = document.getElementById('gcal-events');
+  if(!gcalEl) return;
+  gcalEl.innerHTML = proximas.slice(0,4).map((v,i) => `
+    <div class="gcal-event">
+      <div class="gcal-event-color" style="background:${GCAL_COLORS[i % GCAL_COLORS.length]}"></div>
+      <div class="gcal-event-info">
+        <div class="gcal-event-title">${v.imovel}</div>
+        <div class="gcal-event-time">
+          ${fmt(v.data)}, ${v.hora} · ${v.cliente}
+          <span class="gcal-badge synced" style="margin-left:6px">✓ Google</span>
+        </div>
+      </div>
+      <div class="gcal-event-actions">
+        <button class="icon-btn" onclick="addToGCal(${v.id})" title="Ver no Google Agenda" style="color:#4285F4;font-size:.65rem;width:auto;padding:0 6px">
+          <svg width="12" height="12" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" fill="none" stroke="#4285F4" stroke-width="2"/><line x1="16" y1="2" x2="16" y2="6" stroke="#4285F4" stroke-width="2"/><line x1="8" y1="2" x2="8" y2="6" stroke="#4285F4" stroke-width="2"/><line x1="3" y1="10" x2="21" y2="10" stroke="#4285F4" stroke-width="2"/></svg>
+        </button>
+        <button class="icon-btn" onclick="sendWaVisita(${v.id})" title="WhatsApp" style="color:#25D366">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        </button>
+      </div>
+    </div>`).join('');
+
+  // Week list
+  const weekEl = document.getElementById('gcal-week-list');
+  if(!weekEl) return;
+  const today = new Date();
+  const weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 7);
+  const thisWeek = proximas.filter(v => {
+    const d = new Date(v.data + 'T00:00:00');
+    return d >= today && d <= weekEnd;
+  });
+
+  weekEl.innerHTML = thisWeek.length
+    ? thisWeek.map((v,i) => {
+        const [y,m,d] = v.data.split('-');
+        const dayName = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][new Date(v.data+'T12:00:00').getDay()];
+        return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+          <div style="width:34px;text-align:center;flex-shrink:0">
+            <div style="font-size:.6rem;color:var(--text3);text-transform:uppercase">${dayName}</div>
+            <div style="font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;color:${GCAL_COLORS[i%GCAL_COLORS.length]};line-height:1">${d}</div>
+          </div>
+          <div style="width:3px;height:36px;border-radius:2px;background:${GCAL_COLORS[i%GCAL_COLORS.length]};flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.imovel}</div>
+            <div style="font-size:.7rem;color:var(--text3)">${v.hora} · ${v.cliente}</div>
+          </div>
+          <button onclick="sendWaVisita(${v.id})" class="wa-action-btn">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            Avisar
+          </button>
+        </div>`;
+      }).join('')
+    : `<div style="padding:16px;text-align:center;color:var(--text3);font-size:.8rem">Nenhuma visita esta semana</div>`;
+}
+
+function setCalView(view, btn) {
+  btn.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  if(view === 'lista') {
+    renderCalendarList();
+  } else {
+    renderCalendar();
+  }
+}
+
+function renderCalendarList() {
+  const upcoming = DB.visitas
+    .filter(v => v.status !== 'cancelado')
+    .sort((a,b) => a.data.localeCompare(b.data));
+
+  document.getElementById('cal-hdrs').innerHTML = '';
+  document.getElementById('cal-cells').innerHTML = upcoming.length
+    ? upcoming.map(v => {
+        const [y,m,d] = v.data.split('-');
+        const dayName = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][new Date(v.data+'T12:00:00').getDay()];
+        const monthShort = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][parseInt(m)-1];
+        return `<div style="display:flex;align-items:center;gap:14px;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;transition:all .2s" onmouseover="this.style.borderColor='var(--border2)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="text-align:center;min-width:44px;background:var(--bg3);border-radius:8px;padding:7px 5px">
+            <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;color:var(--text3)">${dayName}</div>
+            <div style="font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:var(--amber2);line-height:1">${d}</div>
+            <div style="font-size:.6rem;color:var(--text3)">${monthShort}</div>
+          </div>
+          <div style="width:3px;height:44px;border-radius:2px;background:${v.status==='confirmado'?'var(--green)':v.status==='realizado'?'var(--amber)':'var(--blue)'};flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.88rem;font-weight:600">${v.imovel}</div>
+            <div style="font-size:.74rem;color:var(--text3);margin-top:2px">${v.hora} · ${v.cliente} · ${v.corretor}</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            ${badge(v.status)}
+            <button onclick="sendWaVisita(${v.id})" class="wa-action-btn">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+              WA
+            </button>
+          </div>
+        </div>`;
+      }).join('')
+    : `<div style="text-align:center;padding:40px;color:var(--text3)">📭 Nenhuma visita futura</div>`;
+}
+
+function addToGCal(id) {
+  const v = DB.visitas.find(x => x.id === id);
+  // Build Google Calendar URL
+  const [y,m,d] = v.data.split('-');
+  const [h,min] = v.hora.split(':');
+  const startDt = `${y}${m}${d}T${h}${min}00`;
+  const endH = String(parseInt(h)+1).padStart(2,'0');
+  const endDt = `${y}${m}${d}T${endH}${min}00`;
+  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent('Visita: '+v.imovel)}&dates=${startDt}/${endDt}&details=${encodeURIComponent(`Cliente: ${v.cliente}\nCorretor: ${v.corretor}\nTipo: ${v.tipo}`)}&location=${encodeURIComponent(v.imovel)}`;
+  window.open(url, '_blank');
+  showToast('Abrindo Google Agenda… ✓', 'success');
+}
+
+function triggerGCalSync() {
+  const bar = document.getElementById('gcal-sync-bar');
+  if(bar) {
+    const dot = bar.querySelector('.sync-bar-dot');
+    if(dot) { dot.style.background='var(--amber)'; }
+    showToast('Sincronizando com Google Agenda…', 'info');
+    setTimeout(() => {
+      if(dot) dot.style.background='var(--green)';
+      showToast('Google Agenda sincronizado! ✓', 'success');
+      renderGCalEvents();
+    }, 1800);
+  }
+}
+
+function disconnectGCal() {
+  if(!confirm('Desconectar o Google Agenda?')) return;
+  const bar = document.getElementById('gcal-sync-bar');
+  if(bar) bar.innerHTML = `
+    <span style="font-size:.8rem;color:var(--text3)">Google Agenda não conectado</span>
+    <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="connectGCal()">🔗 Conectar Google Agenda</button>`;
+  showToast('Google Agenda desconectado', 'info');
+}
+
+function connectGCal() {
+  showToast('Redirecionando para autenticação Google…', 'info');
+  setTimeout(() => {
+    const bar = document.getElementById('gcal-sync-bar');
+    if(bar) bar.innerHTML = `
+      <div class="sync-bar-dot"></div>
+      <span style="font-size:.8rem;color:var(--text2)">Google Agenda sincronizado</span>
+      <span class="gcal-badge synced" style="margin-left:4px">✓ conta@gmail.com</span>
+      <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="triggerGCalSync()">🔄 Sincronizar</button>
+      <button class="btn btn-ghost btn-sm" onclick="disconnectGCal()" style="color:var(--text3)">Desconectar</button>`;
+    showToast('Google Agenda conectado com sucesso! ✓', 'success');
+    renderGCalEvents();
+  }, 1500);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PWA
+═══════════════════════════════════════════════════════════════ */
+let deferredPrompt = null;
+
+function initPWA() {
+  if (window._pwaInitDone) return;
+  window._pwaInitDone = true;
+  // ── Manifest via blob (best effort for single-file app) ──────
+  const color = DB.company.color || '#D4973A';
+  const svgIcon = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'>`
+    + `<rect width='192' height='192' rx='32' fill='${color}'/>`
+    + `<text y='135' x='96' text-anchor='middle' font-size='100'>🏠</text></svg>`;
+  const iconUrl = 'data:image/svg+xml,' + encodeURIComponent(svgIcon);
+  const manifest = {
+    name: DB.company.name + ' Pro',
+    short_name: DB.company.name,
+    description: 'Gestão de visitas imobiliárias',
+    start_url: location.href,          // absolute URL — required by Android Chrome
+    scope: './',
+    display: 'standalone',
+    background_color: '#0C0C0F',
+    theme_color: color,
+    orientation: 'portrait-primary',
+    icons: [
+      { src: iconUrl, sizes: '192x192', type: 'image/svg+xml', purpose: 'any maskable' },
+      { src: iconUrl, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' },
+    ]
+  };
+  try {
+    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+    document.getElementById('pwa-manifest').href = URL.createObjectURL(blob);
+  } catch(e) {}
+
+  // ── Service Worker via same-origin blob URL workaround ───────
+  // Blob SW URLs are blocked by Chrome for install eligibility.
+  // We inject the SW as an inline script served from a <script type="text/javascript">
+  // data: URL trick is also blocked, so we use a JS-generated response via fetch intercept.
+  // Best we can do in a single HTML file: register a minimal SW via importScripts trick.
+  if ('serviceWorker' in navigator) {
+    // Register real same-origin SW (required for Android PWA install prompt)
+    navigator.serviceWorker.register('./sw.js', { scope: './' })
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.warn('SW registration failed:', err));
+  }
+
+  // ── Install prompt (Android Chrome + Edge) ───────────────────
+  // Never show banner if already running as installed PWA
+  const _isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+  if (_isStandalone) {
+    try { localStorage.setItem('pwa-dismissed','1'); } catch(e) {}
     return;
   }
-  e.respondWith(
-    caches.match(e.request)
-      .then(cached => cached || fetch(e.request).then(res => {
-        const clone = res.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
-        return res;
-      }))
-      .catch(() => caches.match('./index.html'))
-  );
-});
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    try { if (localStorage.getItem('pwa-dismissed')) return; } catch(e) {}
+    setTimeout(() => showPWABanner(), 4000);
+  });
+
+  window.addEventListener('appinstalled', () => {
+    showToast('App instalado! 🎉 Abra pela tela inicial.', 'success');
+    hidePWABanner();
+    try { localStorage.setItem('pwa-dismissed','1'); } catch(e) {}
+  });
+
+  // ── iOS Safari: show install instructions ────────────────────
+  const isIOS = /iP(hone|ad|od)/i.test(navigator.userAgent);
+  const isInStandalone = window.navigator.standalone === true;
+  if (isIOS && !isInStandalone) {
+    try { if (localStorage.getItem('pwa-dismissed')) return; } catch(e) {}
+    setTimeout(() => {
+      // Update banner text for iOS
+      const title = document.querySelector('.pwa-banner-title');
+      const sub   = document.querySelector('.pwa-banner-sub');
+      const btn   = document.querySelector('.pwa-banner-actions .btn-primary');
+      if (title) title.textContent = 'Adicionar à Tela de Início';
+      if (sub)   sub.textContent   = 'Toque em Compartilhar ⬆ e depois "Adicionar à Tela de Início"';
+      if (btn)   btn.textContent   = 'Como instalar?';
+      showPWABanner();
+    }, 4000);
+  }
+}
+
+function showPWABanner() {
+  document.getElementById('pwa-banner').classList.add('show');
+}
+
+function hidePWABanner() {
+  document.getElementById('pwa-banner').classList.remove('show');
+}
+
+function installPWA() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(r => {
+      if (r.outcome === 'accepted') showToast('Instalando… 🎉', 'success');
+      deferredPrompt = null;
+      hidePWABanner();
+    });
+  } else {
+    // iOS or browser without prompt
+    showToast('Toque em Compartilhar ⬆ e depois "Adicionar à Tela de Início"', 'info');
+    hidePWABanner();
+  }
+}
+
+function dismissPWA() {
+  hidePWABanner();
+  try { localStorage.setItem('pwa-dismissed','1'); } catch(e) {}
+}
+
+function requestNotifPermission() {
+  if('Notification' in window) {
+    Notification.requestPermission().then(p => {
+      if(p === 'granted') {
+        showToast('Notificações ativadas! 🔔', 'success');
+        new Notification('ImóvelAgenda', { body: 'Você receberá lembretes de visitas aqui.' });
+      }
+    });
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CRM INTELIGENTE
+═══════════════════════════════════════════════════════════════ */
+function clientScore(cl) {
+  // Score 0-100 based on: recency of contact, visits, journey stage, avaliações
+  const today = new Date('2026-02-21');
+  const last = new Date(cl.lastContact || '2026-01-01');
+  const daysSince = Math.floor((today - last) / 86400000);
+  const jornStage = { lead:10, visita_agendada:40, visita_realizada:65, proposta:85, fechado:100 };
+  const stageScore = jornStage[cl.jornada] || 10;
+  const recencyScore = Math.max(0, 100 - daysSince * 3);
+  const visitScore = Math.min(100, cl.visitas * 15);
+  const total = Math.round((stageScore * 0.4) + (recencyScore * 0.35) + (visitScore * 0.25));
+  return Math.min(100, total);
+}
+
+function scoreLabel(score) {
+  if(score >= 65) return { label:'🔥 Quente', cls:'score-quente', color:'var(--red)' };
+  if(score >= 35) return { label:'🌡 Morno',  cls:'score-morno',  color:'var(--amber)' };
+  return           { label:'🧊 Frio',   cls:'score-frio',   color:'var(--blue)' };
+}
+
+function crmAlertCount() {
+  const today = new Date('2026-02-21');
+  return myClientes().filter(cl => {
+    const due = new Date(cl.followupDue || '2099-01-01');
+    return due <= today;
+  }).length;
+}
+
+function setCrmFilter(f, btn) {
+  state.crmFilter = f;
+  btn.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  renderCRM();
+}
+
+function renderCRM() {
+  const today = new Date('2026-02-21');
+
+  // Alerts strip
+  const overdue = DB.clientes.filter(cl => new Date(cl.followupDue||'2099') <= today);
+  const alertEl = document.getElementById('crm-alerts-strip');
+  if(overdue.length) {
+    alertEl.innerHTML = `
+      <div class="crm-alert-strip">
+        <div class="crm-alert-icon">⚠️</div>
+        <div class="crm-alert-list">
+          <div class="crm-alert-title">Follow-up vencido — ${overdue.length} cliente${overdue.length>1?'s':''} aguardando contato</div>
+          ${overdue.slice(0,4).map(cl=>`<div class="crm-alert-item">${cl.nome} — último contato ${fmt(cl.lastContact)} · 
+            <button onclick="sendWaCRM('${cl.tel}','${cl.nome}')" class="wa-action-btn" style="font-size:.65rem;padding:2px 7px">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+              Contatar
+            </button>
+          </div>`).join('')}
+        </div>
+      </div>`;
+  } else {
+    alertEl.innerHTML = '';
+  }
+
+  // Filter clients
+  let data = myClientes().map(cl => ({ ...cl, score: clientScore(cl), scoreInfo: scoreLabel(clientScore(cl)) }));
+  if(state.crmFilter === 'quente')  data = data.filter(d => d.score >= 65);
+  if(state.crmFilter === 'morno')   data = data.filter(d => d.score >= 35 && d.score < 65);
+  if(state.crmFilter === 'frio')    data = data.filter(d => d.score < 35);
+  if(state.crmFilter === 'followup') data = data.filter(d => new Date(d.followupDue||'2099') <= today);
+  data.sort((a,b) => b.score - a.score);
+
+  const jornLabels = { lead:'Lead', visita_agendada:'Visita Agendada', visita_realizada:'Visita Realizada', proposta:'Em Proposta', fechado:'Fechado' };
+  const isOverdue = (cl) => new Date(cl.followupDue||'2099') <= today;
+
+  document.getElementById('crm-cards').innerHTML = data.length ? data.map(cl => `
+    <div class="crm-card ${isOverdue(cl)?'alert':''}" onclick="openHistoricoCliente(${cl.id})">
+      <div class="crm-score-badge ${cl.scoreInfo.cls}">
+        ${cl.scoreInfo.label.split(' ')[0]}
+      </div>
+      <div class="crm-client-info">
+        <div class="crm-client-name">${cl.nome} ${isOverdue(cl)?'<span style="color:var(--red);font-size:.7rem">⚠️ follow-up vencido</span>':''}</div>
+        <div class="crm-client-meta">
+          <span>📋 ${jornLabels[cl.jornada]||cl.jornada}</span>
+          <span>📞 último contato: ${fmt(cl.lastContact)}</span>
+          <span>🏠 ${cl.visitas} visitas</span>
+          <span>💰 ${cl.faixa}</span>
+        </div>
+      </div>
+      <div class="crm-score-bar-wrap">
+        <div class="crm-score-val" style="color:${cl.scoreInfo.color}">${cl.score}</div>
+        <div class="crm-score-bar"><div class="crm-score-fill" style="width:${cl.score}%;background:${cl.scoreInfo.color}"></div></div>
+        <div style="font-size:.6rem;color:var(--text3);text-align:center;margin-top:2px">${cl.scoreInfo.label.replace(/[🔥🌡🧊] /,'')}</div>
+      </div>
+      <div class="crm-actions">
+        <button class="icon-btn" onclick="event.stopPropagation();sendWaCRM('${cl.tel}','${cl.nome}')" title="WhatsApp" style="color:#25D366">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        </button>
+        <button class="icon-btn amber" onclick="event.stopPropagation();agendarParaCRM(${cl.id})" title="Agendar visita">📅</button>
+        <button class="icon-btn" onclick="event.stopPropagation();markFollowupDone(${cl.id})" title="Marcar follow-up feito" style="color:var(--green)">✓</button>
+      </div>
+    </div>`).join('') : `<div style="padding:40px;text-align:center;color:var(--text3)">Nenhum cliente nesta categoria</div>`;
+
+  // Imóveis parados
+  const cutoff = new Date('2026-02-21');
+  cutoff.setDate(cutoff.getDate() - 15);
+  const parados = DB.imoveis.filter(im => {
+    const lastV = DB.visitas.filter(v=>v.imovelId===im.id&&v.status!=='cancelado').sort((a,b)=>b.data.localeCompare(a.data))[0];
+    if(!lastV) return im.status==='disponivel';
+    return new Date(lastV.data) < cutoff && im.status==='disponivel';
+  });
+  document.getElementById('crm-imoveis-parados').innerHTML = parados.length
+    ? parados.slice(0,5).map(im=>{
+        const lastV = DB.visitas.filter(v=>v.imovelId===im.id&&v.status!=='cancelado').sort((a,b)=>b.data.localeCompare(a.data))[0];
+        const dias = lastV ? Math.floor((new Date('2026-02-21')-new Date(lastV.data))/86400000) : '∞';
+        return `<div class="crm-parado-item">
+          <span style="font-size:1.1rem">${TIPO_EMOJI[im.tipo]||'🏠'}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${im.titulo}</div>
+            <div style="font-size:.7rem;color:var(--text3)">${lastV?`${dias} dias sem visita`:'Nunca visitado'} · ${fmtMoney(im.preco,im.finalidade)}</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="agendarParaImovelId(${im.id})">📅</button>
+        </div>`;
+      }).join('')
+    : `<div style="padding:16px;text-align:center;color:var(--green);font-size:.8rem">✅ Todos os imóveis receberam visitas recentemente</div>`;
+
+  // Cancel chart
+  const motivos = { preco:'Preço alto', agenda:'Conflito de agenda', imovel:'Imóvel inadequado', pessoal:'Motivo pessoal', outro:'Outro' };
+  const counts = {};
+  DB.visitas.filter(v=>v.status==='cancelado'&&v.motivo).forEach(v=>{ counts[v.motivo]=(counts[v.motivo]||0)+1; });
+  const labels = Object.keys(counts).map(k=>motivos[k]||k);
+  const values = Object.values(counts);
+  const ctx = document.getElementById('chart-cancelamentos').getContext('2d');
+  if(window._chartCancel) window._chartCancel.destroy();
+  window._chartCancel = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets:[{ data:values, backgroundColor:['#E05555','#5B9EF0','#D4973A','#A47EFA','#50C17A'], borderWidth:0, hoverOffset:4 }] },
+    options: { plugins:{ legend:{ labels:{ color:'#888', font:{family:'Outfit'}, boxWidth:10 }}}, cutout:'60%', responsive:true }
+  });
+}
+
+function sendWaCRM(tel, nome) {
+  const msg = `Olá ${nome.split(' ')[0]}! 👋 Tudo bem?
+
+Estou passando para saber se ainda tem interesse em visitar imóveis ou se posso te indicar alguma novidade! 🏠`;
+  window.open(waLink(tel, msg), '_blank');
+  showToast('Abrindo WhatsApp…','success');
+}
+
+function agendarParaCRM(clienteId) {
+  const cl = DB.clientes.find(c=>c.id===clienteId);
+  populateAgendarSelects();
+  document.getElementById('ag-cliente').value = cl.nome;
+  updateWaPreview && updateWaPreview();
+  navigate('crm');
+  openModal('m-agendar');
+}
+
+function agendarParaImovelId(id) {
+  agendarParaImovel(id);
+}
+
+function markFollowupDone(clienteId) {
+  const cl = DB.clientes.find(c=>c.id===clienteId);
+  const next = new Date('2026-02-21');
+  next.setDate(next.getDate() + 7);
+  cl.lastContact = '2026-02-21';
+  cl.followupDue = next.toISOString().split('T')[0];
+  renderCRM();
+  buildSideNav();
+  showToast(`Follow-up de ${cl.nome.split(' ')[0]} marcado ✓`, 'success');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FAVORITOS
+═══════════════════════════════════════════════════════════════ */
+function toggleFavorito(id) {
+  const idx = state.favoritos.indexOf(id);
+  if(idx > -1) {
+    state.favoritos.splice(idx, 1);
+    showToast('Removido dos favoritos', 'info');
+  } else {
+    state.favoritos.push(id);
+    showToast('Adicionado aos favoritos ❤️', 'success');
+  }
+  // Also sync to client data
+  const u = state.currentUser;
+  const cl = DB.clientes.find(c=>c.nome===u.nome);
+  if(cl) cl.favoritos = [...state.favoritos];
+  renderImoveis();
+  buildSideNav();
+}
+
+function renderFavoritos() {
+  const grid = document.getElementById('favoritos-grid');
+  const empty = document.getElementById('favoritos-empty');
+  if(state.favoritos.length === 0) {
+    empty.style.display = '';
+    grid.innerHTML = '';
+    return;
+  }
+  empty.style.display = 'none';
+  const data = DB.imoveis.filter(im => state.favoritos.includes(im.id));
+  const role = state.currentUser.role;
+  grid.innerHTML = data.map(im => `
+    <div class="prop-card" id="pc-${im.id}">
+      <div class="prop-img">
+        <span>${TIPO_EMOJI[im.tipo]||'🏠'}</span>
+        <div class="prop-img-overlay"></div>
+        <div class="prop-img-badge">${badge(im.status)}</div>
+      </div>
+      <div class="prop-body">
+        <div class="prop-title">${im.titulo}</div>
+        <div class="prop-addr">📍 ${im.endereco}</div>
+        <div class="prop-price">${fmtMoney(im.preco,im.finalidade)}</div>
+        <div class="prop-specs">
+          ${im.quartos?`<span>🛏 ${im.quartos}</span>`:''}
+          ${im.banheiros?`<span>🚿 ${im.banheiros}</span>`:''}
+          <span>📐 ${im.area}m²</span>
+        </div>
+      </div>
+      <div class="prop-foot">
+        <button class="btn btn-primary btn-sm" style="flex:1" onclick="agendarParaImovel(${im.id})">📅 Agendar Visita</button>
+        <button class="icon-btn" onclick="openCalculadora(${im.id})" title="Simular financiamento" style="color:var(--amber)">🧮</button>
+        <button class="icon-btn" onclick="openTourVirtual(${im.id})" title="Tour Virtual" style="color:var(--purple)">🌐</button>
+        <button class="icon-btn active" onclick="toggleFavorito(${im.id})" title="Remover dos favoritos" style="color:var(--red)">❤️</button>
+      </div>
+    </div>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CALCULADORA DE FINANCIAMENTO
+═══════════════════════════════════════════════════════════════ */
+function openCalculadora(imId) {
+  const im = DB.imoveis.find(i=>i.id===imId);
+  state.tourImovelId = imId;
+  document.getElementById('calc-imovel-nome').textContent = im.titulo;
+  document.getElementById('calc-imovel-preco').textContent = fmtMoney(im.preco, im.finalidade);
+  document.getElementById('calc-valor').value = im.preco;
+  document.getElementById('calc-entrada').value = Math.round(im.preco * 0.2);
+  calcFinanciamento();
+  openModal('m-calculadora');
+}
+
+function calcFinanciamento() {
+  const valor = parseFloat(document.getElementById('calc-valor').value) || 0;
+  const entrada = parseFloat(document.getElementById('calc-entrada').value) || 0;
+  const anos = parseInt(document.getElementById('calc-prazo').value) || 20;
+  const taxaAA = parseFloat(document.getElementById('calc-taxa').value) || 11;
+
+  if(!valor || entrada >= valor) return;
+  const financiado = valor - entrada;
+  const taxaMensal = taxaAA / 100 / 12;
+  const n = anos * 12;
+  // SAC: first installment (highest)
+  const amort = financiado / n;
+  const primeiraParc = amort + (financiado * taxaMensal);
+  const ultimaParc = amort + (amort * taxaMensal);
+  const mediaParc = (primeiraParc + ultimaParc) / 2;
+  const totalPago = entrada + (mediaParc * n);
+  const jurosTotais = totalPago - valor;
+
+  document.getElementById('calc-parcela').textContent = `R$ ${Math.round(mediaParc).toLocaleString('pt-BR')}`;
+  document.getElementById('calc-total').textContent = `R$ ${Math.round(totalPago/1000)}k`;
+  document.getElementById('calc-juros').textContent = `R$ ${Math.round(jurosTotais/1000)}k`;
+
+  const pctEntrada = Math.round(entrada/valor*100);
+  const pctFinanc = 100-pctEntrada;
+  const barE = document.getElementById('calc-bar-entrada');
+  const barF = document.getElementById('calc-bar-financ');
+  if(barE) { barE.style.width=pctEntrada+'%'; barF.style.width=pctFinanc+'%'; }
+  document.getElementById('calc-pct-entrada').textContent = `${pctEntrada}% (R$ ${Math.round(entrada/1000)}k)`;
+  document.getElementById('calc-pct-financ').textContent = `${pctFinanc}% (R$ ${Math.round(financiado/1000)}k)`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TOUR VIRTUAL 360°
+═══════════════════════════════════════════════════════════════ */
+const TOUR_ROOMS = {
+  Apartamento: [
+    { name:'Sala de Estar',   icon:'🛋',  desc:'Ampla sala com piso em madeira e varanda integrada', hotspots:[{x:30,y:40,label:'Varanda'},{x:70,y:55,label:'Cozinha →'}] },
+    { name:'Cozinha',         icon:'🍳',  desc:'Cozinha americana com bancada em granito', hotspots:[{x:50,y:35,label:'Despensa'},{x:75,y:60,label:'Sala →'}] },
+    { name:'Quarto Principal',icon:'🛏',  desc:'Suíte master com closet e banheiro privativo', hotspots:[{x:20,y:45,label:'Closet'},{x:80,y:40,label:'Banheiro →'}] },
+    { name:'Banheiro',        icon:'🚿',  desc:'Banheiro com revestimento em porcelanato e box duplo', hotspots:[] },
+    { name:'Varanda',         icon:'🌅',  desc:'Varanda gourmet com vista para a cidade', hotspots:[{x:50,y:50,label:'Vista panorâmica'}] },
+  ],
+  Casa: [
+    { name:'Fachada',        icon:'🏡', desc:'Fachada com jardim frontal e garagem coberta', hotspots:[{x:60,y:65,label:'Garagem →'}] },
+    { name:'Sala de Estar',  icon:'🛋', desc:'Sala ampla com pé direito alto e lareira', hotspots:[{x:40,y:50,label:'Varanda →'},{x:75,y:60,label:'Cozinha →'}] },
+    { name:'Cozinha',        icon:'🍳', desc:'Cozinha gourmet integrada com área de serviço', hotspots:[{x:30,y:55,label:'Área de serviço'}] },
+    { name:'Área de Lazer',  icon:'🏊', desc:'Piscina aquecida com deck em madeira e churrasqueira', hotspots:[{x:50,y:40,label:'Churrasqueira'}] },
+    { name:'Quarto Principal',icon:'🛏',desc:'Suíte com closet amplo e banheiro luxuoso', hotspots:[] },
+  ],
+  Cobertura: [
+    { name:'Rooftop',       icon:'🌆', desc:'Terraço privativo com vista 360° da cidade', hotspots:[{x:30,y:35,label:'Vista Norte'},{x:70,y:35,label:'Vista Sul'}] },
+    { name:'Sala Duplex',   icon:'🛋', desc:'Sala em dois pavimentos com escada flutuante', hotspots:[{x:50,y:60,label:'2° andar →'}] },
+    { name:'Cozinha',       icon:'🍳', desc:'Cozinha italiana com ilha central e adega', hotspots:[{x:40,y:55,label:'Adega'}] },
+    { name:'Suíte Master',  icon:'🛏', desc:'Suíte com closet walk-in e banheiro spa', hotspots:[{x:60,y:45,label:'Closet'}] },
+    { name:'Piscina Privativa',icon:'🏊',desc:'Piscina no rooftop com deck e vista panorâmica', hotspots:[{x:50,y:40,label:'Bar molhado'}] },
+  ],
+  default: [
+    { name:'Ambiente Principal',icon:'🏢',desc:'Espaço amplo com iluminação natural abundante', hotspots:[{x:50,y:50,label:'Área técnica'}] },
+    { name:'Área de Apoio',    icon:'📦',desc:'Espaço de apoio com infraestrutura completa', hotspots:[] },
+  ],
+};
+
+const ROOM_COLORS = [
+  ['#1a1a2e','#16213e','#0f3460'],
+  ['#1a2e1a','#16321a','#0f4520'],
+  ['#2e1a2e','#321630','#450f3c'],
+  ['#2e2a1a','#322618','#453a0f'],
+  ['#1a2a2e','#162830','#0f3240'],
+];
+
+function openTourVirtual(imId) {
+  const im = DB.imoveis.find(i=>i.id===imId);
+  state.tourImovelId = imId;
+  state.tourRoom = 0;
+  document.getElementById('tour-title').textContent = `Tour Virtual — ${im.titulo}`;
+  const rooms = TOUR_ROOMS[im.tipo] || TOUR_ROOMS.default;
+  renderTourRooms(rooms);
+  renderTourViewer(rooms, 0);
+  openModal('m-tour');
+}
+
+function renderTourRooms(rooms) {
+  document.getElementById('tour-rooms').innerHTML = rooms.map((r,i)=>`
+    <button class="tour-room-btn ${i===0?'active':''}" id="tour-room-btn-${i}" onclick="setTourRoom(${i})">
+      ${r.icon} ${r.name}
+    </button>`).join('');
+}
+
+function setTourRoom(idx) {
+  const im = DB.imoveis.find(i=>i.id===state.tourImovelId);
+  const rooms = TOUR_ROOMS[im.tipo]||TOUR_ROOMS.default;
+  state.tourRoom = idx;
+  document.querySelectorAll('.tour-room-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
+  renderTourViewer(rooms, idx);
+}
+
+function tourNextRoom() { const im=DB.imoveis.find(i=>i.id===state.tourImovelId); const rooms=TOUR_ROOMS[im.tipo]||TOUR_ROOMS.default; setTourRoom((state.tourRoom+1)%rooms.length); }
+function tourPrevRoom() { const im=DB.imoveis.find(i=>i.id===state.tourImovelId); const rooms=TOUR_ROOMS[im.tipo]||TOUR_ROOMS.default; setTourRoom((state.tourRoom-1+rooms.length)%rooms.length); }
+function tourAgendar()  { const im=DB.imoveis.find(i=>i.id===state.tourImovelId); closeModal('m-tour'); agendarParaImovel(im.id); }
+
+function renderTourViewer(rooms, idx) {
+  const room = rooms[idx];
+  const colors = ROOM_COLORS[idx % ROOM_COLORS.length];
+  const viewer = document.getElementById('tour-viewer');
+  const panorama = document.getElementById('tour-panorama');
+  const hotspotEl = document.getElementById('tour-hotspots');
+
+  // Build immersive panorama with CSS
+  panorama.style.cssText = `position:absolute;inset:0;overflow:hidden;`;
+  panorama.innerHTML = `
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 70%,${colors[0]} 0%,${colors[1]} 40%,$nt)"></div>
+    <!-- Furniture silhouettes -->
+    <div style="position:absolute;bottom:30%;left:10%;font-size:4rem;opacity:.5;filter:blur(1px);transform:perspective(200px) rotateX(15deg)">${room.icon}</div>
+    <div style="position:absolute;bottom:28%;left:45%;font-size:2.5rem;opacity:.3;filter:blur(1.5px);transform:perspective(200px) rotateX(20deg) scale(.7)">${rooms[(idx+1)%rooms.length].icon}</div>
+    <div style="position:absolute;bottom:32%;right:12%;font-size:3rem;opacity:.35;filter:blur(1px);transform:perspective(200px) rotateX(12deg) scaleX(-1)">${room.icon}</div>
+    <!-- Perspective floor grid -->
+    <svg style="position:absolute;bottom:0;left:0;right:0;width:100%;height:40%" viewBox="0 0 900 200" preserveAspectRatio="none">
+      ${[1,2,3,4,5].map(i=>`<line x1="${450-i*120}" y1="200" x2="${450-i*20}" y2="0" stroke="rgba(255,255,255,.06)" stroke-width="1"/><line x1="${450+i*120}" y1="200" x2="${450+i*20}" y2="0" stroke="rgba(255,255,255,.06)" stroke-width="1"/>`).join('')}
+      ${[0,1,2,3].map(i=>`<line x1="${100+i*50}" y1="${60+i*40}" x2="${900-100-i*50}" y2="${60+i*40}" stroke="rgba(255,255,255,.04)" stroke-width="1"/>`).join('')}
+    </svg>
+    <!-- Room name overlay -->
+    <div style="position:absolute;top:16px;left:20px;background:rgba(0,0,0,.5);color:#fff;padding:6px 14px;border-radius:20px;font-size:.8rem;font-weight:600;backdrop-filter:blur(8px)">${room.icon} ${room.name}</div>
+  `;
+
+  // Hotspots
+  hotspotEl.innerHTML = room.hotspots.map((h,i)=>`
+    <div class="tour-hotspot" style="left:${h.x}%;top:${h.y}%;transform:translate(-50%,-50%)"
+      onclick="showHotspot('${h.label}')" title="${h.label}">
+      <span style="font-size:.6rem;color:#fff;font-weight:700">i</span>
+    </div>`).join('');
+
+  document.getElementById('tour-room-name').textContent = room.name;
+  document.getElementById('tour-room-desc').textContent = room.desc;
+
+  // Drag to "rotate"
+  let isDragging = false, startX = 0, offsetX = 0;
+  viewer.onmousedown = viewer.ontouchstart = (e) => {
+    isDragging = true;
+    startX = (e.touches?e.touches[0]:e).clientX - offsetX;
+    viewer.style.cursor = 'grabbing';
+    document.getElementById('tour-hint').style.display = 'none';
+  };
+  document.onmouseup = document.ontouchend = () => { isDragging = false; viewer.style.cursor='grab'; };
+  document.onmousemove = document.ontouchmove = (e) => {
+    if(!isDragging) return;
+    const x = (e.touches?e.touches[0]:e).clientX;
+    offsetX = x - startX;
+    const rot = offsetX * 0.05;
+    panorama.style.transform = `perspective(800px) rotateY(${rot}deg)`;
+    panorama.querySelectorAll('[style*="opacity"]').forEach(el => {
+      el.style.transform = el.style.transform.replace(/translateX\([^)]+\)/,'') + ` translateX(${offsetX*0.08}px)`;
+    });
+  };
+}
+
+function showHotspot(label) {
+  showToast(`📍 ${label}`, 'info');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TIMELINE DE JORNADA (cliente)
+═══════════════════════════════════════════════════════════════ */
+function openTimeline() {
+  const u = state.currentUser;
+  const cl = DB.clientes.find(c=>c.nome===u.nome);
+  const minhasVisitas = DB.visitas.filter(v=>v.cliente===u.nome).sort((a,b)=>a.data.localeCompare(b.data));
+  const jornada = cl?.jornada || 'lead';
+
+  const steps = [
+    { key:'lead',             icon:'👋', label:'Primeiro Contato', sublabel:'Cadastro e boas-vindas' },
+    { key:'visita_agendada',  icon:'📅', label:'Visita Agendada',  sublabel:'Agendamento confirmado' },
+    { key:'visita_realizada', icon:'🏠', label:'Visita Realizada', sublabel:'Imóvel visitado com o corretor' },
+    { key:'proposta',         icon:'📝', label:'Proposta',         sublabel:'Negociação em andamento' },
+    { key:'fechado',          icon:'🎉', label:'Negócio Fechado',  sublabel:'Contrato assinado!' },
+  ];
+  const order = steps.map(s=>s.key);
+  const currentIdx = order.indexOf(jornada);
+
+  document.getElementById('timeline-body').innerHTML = `
+    <div style="margin-bottom:18px;padding:14px;background:var(--bg3);border-radius:10px">
+      <div style="font-size:.72rem;color:var(--text3);margin-bottom:3px">Sua jornada em</div>
+      <div style="font-size:.9rem;font-weight:700">${DB.company.name}</div>
+      ${minhasVisitas.length?`<div style="font-size:.75rem;color:var(--text3);margin-top:4px">${minhasVisitas.length} visitas realizadas</div>`:''}
+    </div>
+    <div class="journey-steps">
+      ${steps.map((s,i)=>{
+        const done = i < currentIdx;
+        const active = i === currentIdx;
+        const todo = i > currentIdx;
+        const rel = minhasVisitas.filter(v=>
+          (s.key==='visita_agendada'&&(v.status==='agendado'||v.status==='confirmado'))||
+          (s.key==='visita_realizada'&&v.status==='realizado')
+        );
+        return `<div class="journey-step">
+          <div class="journey-dot ${done?'done':active?'active':'todo'}">${done?'✓':s.icon}</div>
+          <div class="journey-content">
+            <div class="journey-label" style="color:${done?'var(--green)':active?'var(--amber)':'var(--text3)'}">${s.label}</div>
+            <div class="journey-sublabel">${s.sublabel}</div>
+            ${rel.length?`<div class="journey-date">📅 ${rel.map(v=>`${v.imovel} — ${fmt(v.data)}`).join(' · ')}</div>`:''}
+            ${active?`<div style="margin-top:6px"><span style="background:var(--amber-dim);color:var(--amber);border:1px solid var(--amber-glow);border-radius:6px;padding:2px 8px;font-size:.7rem;font-weight:700">← Você está aqui</span></div>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  openModal('m-timeline');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════════════════════════ */
+/* Swipe-to-close bottom-sheet modals */
+(function(){
+  var startY=0, modal=null, dragging=false;
+  document.addEventListener('touchstart',function(e){
+    var ov=e.target.closest('.modal-overlay');
+    if(!ov||!ov.classList.contains('open'))return;
+    modal=ov.querySelector('.modal'); startY=e.touches[0].clientY; dragging=false;
+  },{passive:true});
+  document.addEventListener('touchmove',function(e){
+    if(!modal)return;
+    var dy=e.touches[0].clientY-startY;
+    if(dy>8){dragging=true;modal.style.transform='translateY('+Math.min(dy,260)+'px)';modal.style.transition='none';}
+  },{passive:true});
+  document.addEventListener('touchend',function(e){
+    if(!modal||!dragging){modal=null;return;}
+    var dy=e.changedTouches[0].clientY-startY;
+    modal.style.transition='';
+    if(dy>100){var ov=modal.closest('.modal-overlay');modal.style.transform='translateY(100%)';setTimeout(function(){modal.style.transform='';if(ov&&ov.id)closeModal(ov.id);modal=null;},260);}
+    else{modal.style.transform='';modal=null;}
+    dragging=false;
+  },{passive:true});
+})();
+
+
+/* ═══════════════════════════════════════════════════════════════
+   FIREBASE SYNC LAYER
+   Modo offline por padrão. Ativa quando FIREBASE_CONFIG estiver
+   configurado em firebase.js (carregado antes deste script).
+═══════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   FIREBASE — Auth + Firestore
+   • Login via Firebase Authentication (email/senha)
+   • Todos os dados vivem no Firestore
+   • onSnapshot mantém tudo em tempo real entre dispositivos
+   • F5 = Firebase Auth revalida sessão automaticamente
+═══════════════════════════════════════════════════════════════ */
+let _db   = null;
+let _auth = null;
+let _firebaseReady = false;
+let _unsubscribers = [];   // para cancelar listeners ao sair
+
+/* Inicializa Firebase se config estiver preenchida */
+function initFirebase() {
+  try {
+    if (typeof firebase === 'undefined') return;
+    const cfg = window.FIREBASE_CONFIG;
+    if (!cfg || cfg.apiKey === 'COLE_AQUI') {
+      console.info('Firebase não configurado — modo demo ativo');
+      return;
+    }
+    if (!firebase.apps.length) firebase.initializeApp(cfg);
+    _auth = firebase.auth();
+    _db   = firebase.firestore();
+    _firebaseReady = true;
+    // Cache offline: funciona sem internet e sincroniza quando reconectar
+    _db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+    console.log('✅ Firebase inicializado');
+  } catch(e) {
+    console.warn('Erro ao inicializar Firebase:', e.message);
+  }
+}
+
+/* ── Converte doc Firestore → objeto JS ── */
+function _fromDoc(doc) {
+  return { ...doc.data(), id: doc.id };
+}
+
+/* ── Carrega todas as coleções de uma vez ── */
+async function loadFromFirebase() {
+  if (!_firebaseReady || !_db) return;
+  try {
+    const cols = ['users','imoveis','visitas','clientes','corretores','avaliacoes','notificacoes'];
+    const snaps = await Promise.all(cols.map(col => _db.collection(col).get()));
+    snaps.forEach((snap, i) => {
+      if (!snap.empty) DB[cols[i]] = snap.docs.map(_fromDoc);
+    });
+    // Kanban (sub-estrutura)
+    const kanbanSnap = await _db.collection('kanban').get();
+    if (!kanbanSnap.empty) {
+      DB.kanban = {};
+      kanbanSnap.docs.forEach(d => { DB.kanban[d.id] = d.data().cards || []; });
+    }
+    // Company config
+    const compSnap = await _db.collection('company').doc('config').get();
+    if (compSnap.exists) Object.assign(DB.company, compSnap.data());
+
+    console.log('✅ Dados carregados do Firestore');
+  } catch(e) {
+    console.warn('Erro ao carregar dados:', e.message);
+  }
+}
+
+/* ── Salva um único documento no Firestore ── */
+async function _saveDoc(collection, item) {
+  if (!_firebaseReady || !_db) return;
+  try {
+    await _db.collection(collection).doc(String(item.id)).set(item, { merge: true });
+  } catch(e) { console.warn(`Erro ao salvar ${collection}:`, e.message); }
+}
+
+/* ── Remove um único documento ── */
+async function _deleteDoc(collection, id) {
+  if (!_firebaseReady || !_db) return;
+  try {
+    await _db.collection(collection).doc(String(id)).delete();
+  } catch(e) { console.warn(`Erro ao remover ${collection}/${id}:`, e.message); }
+}
+
+/* ── Salva coleção inteira (para arrays que sofrem filter) ── */
+async function _saveCollection(collection, arr) {
+  if (!_firebaseReady || !_db) return;
+  try {
+    const batch = _db.batch();
+    arr.forEach(item => {
+      batch.set(_db.collection(collection).doc(String(item.id)), item, { merge: true });
+    });
+    await batch.commit();
+  } catch(e) { console.warn(`Erro ao salvar coleção ${collection}:`, e.message); }
+}
+
+/* ── Salva kanban completo ── */
+async function _saveKanban() {
+  if (!_firebaseReady || !_db) return;
+  try {
+    const batch = _db.batch();
+    Object.entries(DB.kanban).forEach(([col, cards]) => {
+      batch.set(_db.collection('kanban').doc(col), { cards }, { merge: true });
+    });
+    await batch.commit();
+  } catch(e) { console.warn('Erro ao salvar kanban:', e.message); }
+}
+
+/* ── Salva company config ── */
+async function _saveCompany() {
+  if (!_firebaseReady || !_db) return;
+  try {
+    await _db.collection('company').doc('config').set(DB.company, { merge: true });
+  } catch(e) { console.warn('Erro ao salvar company:', e.message); }
+}
+
+/* ── API pública: syncToFirebase(collection, item?) ──
+   collection = nome da coleção ou 'kanban' ou 'company'
+   item = objeto específico (opcional — se omitido salva a coleção toda) */
+function syncToFirebase(collection, item) {
+  if (!_firebaseReady || !_db) return;
+  if (collection === 'kanban')  { _saveKanban(); return; }
+  if (collection === 'company') { _saveCompany(); return; }
+  if (item) { _saveDoc(collection, item); }
+  else { _saveCollection(collection, DB[collection] || []); }
+}
+
+/* ── Listeners em tempo real: atualiza UI quando outro dispositivo muda ── */
+function startRealtimeSync() {
+  if (!_firebaseReady || !_db) return;
+
+  // Cancela listeners anteriores
+  _unsubscribers.forEach(u => u());
+  _unsubscribers = [];
+
+  const listen = (col, onUpdate) => {
+    const unsub = _db.collection(col).onSnapshot(snap => {
+      if (snap.empty) return;
+      onUpdate(snap.docs.map(_fromDoc));
+    }, err => console.warn(`Listener ${col}:`, err.message));
+    _unsubscribers.push(unsub);
+  };
+
+  listen('visitas', data => {
+    DB.visitas = data;
+    if (state.currentPage === 'visitas')           renderVisitas();
+    if (state.currentPage === 'dashboard')         renderDashboard();
+    if (state.currentPage === 'dashboard-cliente') renderDashboardCliente();
+    if (state.currentPage === 'agenda')            renderCalendar();
+    if (state.currentPage === 'funil')             renderKanban();
+    refreshNavBadges();
+  });
+
+  listen('users', data => {
+    DB.users = data;
+    if (state.currentPage === 'usuarios') renderUsuarios();
+    _renderLoginProfiles();
+  });
+
+  listen('imoveis', data => {
+    DB.imoveis = data;
+    if (state.currentPage === 'imoveis') renderImoveis();
+    if (state.currentPage === 'mapa')    renderMap();
+  });
+
+  listen('clientes', data => {
+    DB.clientes = data;
+    if (state.currentPage === 'clientes') renderClientes();
+    if (state.currentPage === 'crm')      renderCRM();
+  });
+
+  listen('corretores', data => {
+    DB.corretores = data;
+    if (state.currentPage === 'corretores') renderCorretores();
+  });
+
+  listen('avaliacoes', data => {
+    DB.avaliacoes = data;
+    if (state.currentPage === 'avaliacoes') renderAvaliacoes();
+  });
+
+  // Kanban (estrutura diferente)
+  const kanbanUnsub = _db.collection('kanban').onSnapshot(snap => {
+    if (snap.empty) return;
+    snap.docs.forEach(d => { DB.kanban[d.id] = d.data().cards || []; });
+    if (state.currentPage === 'funil') renderKanban();
+  });
+  _unsubscribers.push(kanbanUnsub);
+
+  console.log('✅ Listeners em tempo real ativos');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FIREBASE AUTH — Login real com email/senha
+═══════════════════════════════════════════════════════════════ */
+
+/* Inicializa auth listener: detecta sessão existente no F5 */
+function initFirebaseAuth() {
+  if (!_firebaseReady || !_auth) return;
+
+  _auth.onAuthStateChanged(async (firebaseUser) => {
+    if (firebaseUser) {
+      // Usuário já logado (F5 ou reabrir aba)
+      // Busca perfil no Firestore usando o email
+      try {
+        const snap = await _db.collection('users')
+          .where('email', '==', firebaseUser.email).limit(1).get();
+        if (!snap.empty) {
+          await loadFromFirebase();
+          state.currentUser = _fromDoc(snap.docs[0]);
+          document.getElementById('login-screen').style.display = 'none';
+          document.getElementById('app').classList.add('visible');
+          initApp();
+          startRealtimeSync();
+        }
+      } catch(e) {
+        console.warn('Erro ao restaurar sessão:', e.message);
+      }
+    } else {
+      // Não logado — mostra tela de login
+      if (!state.currentUser) {
+        document.getElementById('login-screen').style.display = '';
+        initLogin();
+      }
+    }
+  });
+}
+
+/* Login com Firebase Auth */
+async function firebaseLogin(email, senha) {
+  if (!_firebaseReady || !_auth) return null;
+  try {
+    const cred = await _auth.signInWithEmailAndPassword(email, senha);
+    return cred.user;
+  } catch(e) {
+    const msgs = {
+      'auth/user-not-found':   'Email não encontrado',
+      'auth/wrong-password':   'Senha incorreta',
+      'auth/invalid-email':    'Email inválido',
+      'auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos.',
+      'auth/user-disabled':    'Conta desativada',
+    };
+    throw new Error(msgs[e.code] || e.message);
+  }
+}
+
+/* Logout Firebase */
+async function firebaseLogout() {
+  if (_firebaseReady && _auth) {
+    _unsubscribers.forEach(u => u());
+    _unsubscribers = [];
+    await _auth.signOut().catch(() => {});
+  }
+}
+
+/* Cria usuário no Firebase Auth (chamado ao cadastrar novo usuário) */
+async function createFirebaseAuthUser(email, senha) {
+  if (!_firebaseReady || !_auth) return;
+  try {
+    // Usa REST API para criar sem fazer login automático
+    const cfg = window.FIREBASE_CONFIG;
+    const url = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${cfg.apiKey}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: senha, returnSecureToken: false })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      const msgs = {
+        'EMAIL_EXISTS': 'Este email já possui conta no Firebase',
+        'WEAK_PASSWORD': 'Senha muito fraca (mínimo 6 caracteres)',
+      };
+      const code = err.error?.message || '';
+      console.warn('Firebase Auth create:', msgs[code] || code);
+    }
+  } catch(e) {
+    console.warn('Erro ao criar conta Firebase Auth:', e.message);
+  }
+}
+
+
+/* ── Mobile FAB ── */
+const MOB_FAB_CONFIG={
+  dashboard:  {icon:'📅',action:()=>{populateAgendarSelects();openModal('m-agendar');}},
+  imoveis:    {icon:'🏢',action:()=>{if(['master','admin','gerente','corretor'].includes(state.currentUser.role))openModal('m-add-imovel');}},
+  visitas:    {icon:'📅',action:()=>{populateAgendarSelects();openModal('m-agendar');}},
+  agenda:     {icon:'📅',action:()=>{populateAgendarSelects();openModal('m-agendar');}},
+  clientes:   {icon:'👥',action:()=>openModal('m-add-cliente')},
+  corretores: {icon:'🏅',action:()=>openModal('m-add-corretor')},
+  usuarios:   {icon:'🛡️',action:()=>openAddUsuario()},
+  chat:       {icon:'✏️',action:()=>document.querySelector('.chat-input')?.focus()},
+  crm:        {icon:'📅',action:()=>{populateAgendarSelects();openModal('m-agendar');}},
+  funil:      {icon:'＋',action:()=>openAddKanbanCard('lead')},
+};
+function handleMobFab(){const cfg=MOB_FAB_CONFIG[state.currentPage];if(cfg)cfg.action();}
+function updateMobFab(page){
+  const fab=document.getElementById('mob-fab');
+  const icon=document.getElementById('mob-fab-icon');
+  if(!fab)return;
+  const cfg=MOB_FAB_CONFIG[page];
+  const role=state.currentUser?.role;
+  const noPages=['configuracoes','perfil','relatorios','mapa','favoritos','notificacoes','avaliacoes'];
+  const hide=!cfg||noPages.includes(page)||(page==='imoveis'&&!['master','admin','gerente','corretor'].includes(role));
+  fab.style.display=hide?'none':'flex';
+  if(cfg&&icon) icon.textContent=cfg.icon;
+}
+
+
+// Boot: Firebase detecta sessão automaticamente via onAuthStateChanged
+// Se Firebase não estiver configurado, cai no initLogin() normal
+initPWA();
+initFirebase();
+if (_firebaseReady) {
+  initFirebaseAuth(); // handles F5 session restore + redirects to app or login
+} else {
+  initLogin(); // modo demo sem Firebase
+}
+</script>
+</body>
+</html>
